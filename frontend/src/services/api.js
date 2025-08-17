@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
+  // Use env var in prod (Vercel), fallback to local in dev
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000",
 });
 
 // Attach JWT token to requests
@@ -20,9 +21,9 @@ export const loginUser = (data) => api.post("/auth/login", data);
 export const getProfile = () => api.get("/auth/me");
 
 /* ------------------- MEMBERS ------------------- */
-export const publicRegisterMember = (data) => api.post("/members/register", data); // anyone can request
-export const getMembers = () => api.get("/members"); // admin only
-export const getPendingMembers = () => api.get("/members/pending"); // admin only
+export const publicRegisterMember = (data) => api.post("/members/register", data);
+export const getMembers = () => api.get("/members");
+export const getPendingMembers = () => api.get("/members/pending");
 export const approveMember = (id) => api.post(`/members/${id}/approve`);
 export const rejectMember = (id) => api.post(`/members/${id}/reject`);
 export const updateMember = (id, data) => api.put(`/members/${id}`, data);
