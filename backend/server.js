@@ -56,8 +56,10 @@ app.use((err, req, res, next) => {
 });
 
 // ✅ FIX: define PORT before using
+// Start the server
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on http://10.76.175.76:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
+
