@@ -118,6 +118,15 @@
           align: 'left'
         });
 
+              // Unique Number
+      doc.font('bold')
+        .fontSize(38)
+        .fillColor('green')
+        .text(`સભ્ય નં.: ${member.uniqueNumber || member.cardId || ''}`, 38, 445, {
+          width: 800
+        });
+
+
       // Mobile
       doc.font('bold')
         .fontSize(40)
