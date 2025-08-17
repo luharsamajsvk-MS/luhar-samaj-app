@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# env & secrets
+.env
+
+# logs & caches
+*.log
+logs/
+.cache/
+dist/
+
+# OS/IDE noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
