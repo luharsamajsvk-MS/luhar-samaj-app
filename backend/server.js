@@ -15,11 +15,18 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 
-// Middleware
+// ✅ CORS configuration
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://10.76.175.76:3000'],
+  origin: [
+    'http://localhost:3000',                 // local dev
+    'http://10.76.175.76:3000',              // your local IP
+    'https://luhar-samaj-app.vercel.app'     // deployed frontend (Vercel)
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
+
+// Middleware
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/zones', zoneStickersRouter);
@@ -55,11 +62,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// ✅ FIX: define PORT before using
-// Start the server
+// ✅ Start the server
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
