@@ -13,7 +13,7 @@ const familyMemberSchema = new mongoose.Schema({
     trim: true
   },
   age: {
-    type: Number,
+    type: text,
     required: true    // required if family member exists
   }
 });
