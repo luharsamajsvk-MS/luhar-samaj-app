@@ -51,7 +51,7 @@ router.post('/', auth, async (req, res) => {
         ? familyMembers.map(f => ({
             name: f.name,
             relation: f.relation,
-            age: f.age
+            age: String(f.age)   // 👈 force age to string
           }))
         : [],
       createdBy: req.user?.id,
@@ -104,7 +104,7 @@ router.put('/:id', auth, async (req, res) => {
       ? familyMembers.map(f => ({
           name: f.name,
           relation: f.relation,
-          age: f.age
+          age: String(f.age)   // 👈 force age to string
         }))
       : [];
 
