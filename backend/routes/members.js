@@ -1,4 +1,3 @@
-// backend/routes/members.js
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -35,7 +34,7 @@ router.post('/', auth, async (req, res) => {
     // ✅ Check if uniqueNumber already exists
     const existingNumber = await Member.findOne({ uniqueNumber });
     if (existingNumber) {
-      return res.status(400).json({ error: `Unique Number ${uniqueNumber} is already assigned.` });
+      return res.status(400).json({ error: `Unique Number ${uniqueNumber} is already assigned to ${existingNumber.headName}.` });
     }
 
     // ✅ Generate a UUID cardId for QR code
@@ -57,7 +56,6 @@ router.post('/', auth, async (req, res) => {
         : [],
       createdBy: req.user?.id,
       cardId // ✅ saved here
-      // issueDate is set by schema default
     });
 
     await member.save();
@@ -89,7 +87,7 @@ router.put('/:id', auth, async (req, res) => {
     if (uniqueNumber) {
       const existingNumber = await Member.findOne({ uniqueNumber, _id: { $ne: req.params.id } });
       if (existingNumber) {
-        return res.status(400).json({ error: `Unique Number ${uniqueNumber} is already assigned.` });
+        return res.status(400).json({ error: `Unique Number ${uniqueNumber} is already assigned to ${existingNumber.headName}.` });
       }
     }
 
@@ -141,7 +139,7 @@ router.get('/:id/pdf', auth, async (req, res) => {
     const pdfBuffer = await generateCard(req.params.id);
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': 'inline',
+      'Content-Disposition': 'inline', // ✅ preview in browser
     });
     res.send(pdfBuffer);
   } catch (err) {
@@ -184,8 +182,7 @@ router.get('/verify/:id', async (req, res) => {
       dateOfIssue: member.issueDate
         ? member.issueDate.toISOString().split("T")[0]
         : null,
-      uniqueNumber: member.uniqueNumber
-
+      સભ્યનં: member.uniqueNumber
     });
   } catch (err) {
     console.error("QR verify error:", err);

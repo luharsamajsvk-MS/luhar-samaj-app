@@ -46,7 +46,7 @@ function Zones() {
       setPeople(list);
     } catch (err) {
       console.error('Error fetching people:', err);
-      setPeopleError(err?.message || 'Failed to load people');
+      setPeopleError(err?.message || 'સભ્યો લોડ કરવામાં નિષ્ફળ');
     } finally {
       setPeopleLoading(false);
     }
@@ -56,27 +56,27 @@ function Zones() {
   const handleGenerateStickers = async (zone) => {
     try {
       const res = await api.get(`/zones/${zone._id}/stickers`, {
-        responseType: 'blob', // expect a file
+        responseType: 'blob',
       });
 
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `stickers_${zone.name}.pdf`);
+      link.setAttribute('download', `સ્ટિકર_${zone.name}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
     } catch (err) {
       console.error('Sticker generation failed:', err);
-      alert('Failed to generate stickers');
+      alert('સ્ટિકર જનરેટ કરવામાં નિષ્ફળ');
     }
   };
 
   return (
     <Container>
       <Typography variant="h4" gutterBottom>
-        Zone Management
+        ઝોન મેનેજમેન્ટ
       </Typography>
 
       <Button
@@ -88,7 +88,7 @@ function Zones() {
           setShowForm(true);
         }}
       >
-        Add New Zone
+        નવો ઝોન ઉમેરો
       </Button>
 
       {showForm && (
@@ -108,7 +108,7 @@ function Zones() {
       {loading ? (
         <CircularProgress />
       ) : zones.length === 0 ? (
-        <Typography>No zones found</Typography>
+        <Typography>કોઈ ઝોન મળ્યો નથી</Typography>
       ) : (
         <Grid container spacing={2}>
           {zones.map((zone) => (
@@ -116,8 +116,8 @@ function Zones() {
               <Card>
                 <CardContent>
                   <Typography variant="h6">{zone.name}</Typography>
-                  <Typography>Zone Number: {zone.number}</Typography>
-                  <Typography>Total People: {zone.totalPeople}</Typography>
+                  <Typography>ઝોન નંબર: {zone.number}</Typography>
+                  <Typography>કુલ સભ્યો: {zone.totalPeople}</Typography>
 
                   <Button
                     size="small"
@@ -125,17 +125,17 @@ function Zones() {
                     sx={{ mt: 1, mr: 1 }}
                     onClick={() => handleViewPeople(zone)}
                   >
-                    View People
+                    સભ્યો જુઓ
                   </Button>
 
-                  {/* 🔹 NEW Sticker Button */}
+                  {/* 🔹 Sticker Button */}
                   <Button
                     size="small"
                     color="success"
                     sx={{ mt: 1, mr: 1 }}
                     onClick={() => handleGenerateStickers(zone)}
                   >
-                    Generate Stickers
+                    સ્ટિકર બનાવો
                   </Button>
 
                   <Button
@@ -147,7 +147,7 @@ function Zones() {
                       setShowForm(true);
                     }}
                   >
-                    Edit
+                    એડિટ
                   </Button>
 
                   <Button
@@ -155,18 +155,18 @@ function Zones() {
                     color="error"
                     sx={{ mt: 1 }}
                     onClick={async () => {
-                      if (window.confirm('Delete this zone?')) {
+                      if (window.confirm('આ ઝોન ડિલીટ કરવો છે?')) {
                         try {
                           await api.delete(`/zones/${zone._id}`);
                           fetchZones();
                         } catch (err) {
                           console.error('Delete failed:', err);
-                          alert('Cannot delete zone with members assigned');
+                          alert('સભ્યો જોડાયેલા હોવાથી ઝોન ડિલીટ કરી શકાતા નથી');
                         }
                       }
                     }}
                   >
-                    Delete
+                    ડિલીટ
                   </Button>
                 </CardContent>
               </Card>

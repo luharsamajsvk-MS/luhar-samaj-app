@@ -10,8 +10,9 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Members from './pages/Members';
 import Zones from './pages/Zones';
-import Users from './pages/Users';
 import Home from './pages/Home';
+import RequestForm from './pages/RequestForm';
+import Requests from './pages/Requests'; // ✅ Keep requests
 
 // Theme config with responsive typography
 const theme = createTheme({
@@ -33,10 +34,20 @@ const theme = createTheme({
   },
 });
 
-// PrivateRoute wrapper
-const PrivateRoute = ({ children }) => {
-  const isAuthenticated = !!localStorage.getItem('token'); // adapt to your auth system
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+// 🔒 PrivateRoute wrapper with role support
+const PrivateRoute = ({ children, requiredRole }) => {
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('userRole'); // e.g., "admin" or "user"
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requiredRole && role !== requiredRole) {
+    return <Navigate to="/" replace />; // redirect non-admins
+  }
+
+  return children;
 };
 
 function App() {
@@ -53,18 +64,21 @@ function App() {
           sx={{
             flexGrow: 1,
             py: 3,
-            px: { xs: 1, sm: 2, md: 3 }, // responsive padding
+            px: { xs: 1, sm: 2, md: 3 },
           }}
         >
           <Container maxWidth="xl">
             <Routes>
-              {/* Landing page with only Login button */}
+              {/* Landing page with Login + Request button */}
               <Route path="/" element={<Home />} />
+
+              {/* Public request form */}
+              <Route path="/request" element={<RequestForm />} />
 
               {/* Login route */}
               <Route path="/login" element={<Login />} />
 
-              {/* Admin-only routes */}
+              {/* Protected routes */}
               <Route
                 path="/dashboard"
                 element={
@@ -89,11 +103,13 @@ function App() {
                   </PrivateRoute>
                 }
               />
+
+              {/* Admin-only requests page */}
               <Route
-                path="/users"
+                path="/requests"
                 element={
-                  <PrivateRoute>
-                    <Users />
+                  <PrivateRoute requiredRole="admin">
+                    <Requests />
                   </PrivateRoute>
                 }
               />

@@ -4,8 +4,18 @@ const auth = require('../middleware/auth');
 const Member = require('../models/Member');
 const Zone = require('../models/Zone');
 
+// 🔹 PUBLIC: Get all zones (basic info only, for dropdowns)
+router.get('/public', async (req, res) => {
+  try {
+    const zones = await Zone.find({}, { number: 1, name: 1 }); // only essential fields
+    res.json(zones);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
-// Create zone
+// 🔹 ADMIN: Create zone
 router.post('/', auth, async (req, res) => {
   try {
     const { number, name } = req.body;
@@ -25,8 +35,7 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-
-// Get all zones with total people count
+// 🔹 ADMIN: Get all zones with people counts
 router.get('/', auth, async (req, res) => {
   try {
     const zones = await Zone.find().populate('createdBy', 'email');
@@ -34,13 +43,10 @@ router.get('/', auth, async (req, res) => {
     const zonesWithCount = await Promise.all(
       zones.map(async zone => {
         const members = await Member.find({ zone: zone._id });
-
-        // Count heads + family members
         const totalPeople = members.reduce(
           (sum, member) => sum + 1 + (member.familyMembers?.length || 0),
           0
         );
-
         return {
           ...zone.toObject(),
           totalPeople
@@ -55,8 +61,7 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-
-// Update zone
+// 🔹 ADMIN: Update zone
 router.put('/:id', auth, async (req, res) => {
   try {
     const { number, name } = req.body;
@@ -78,8 +83,7 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-
-// Delete zone
+// 🔹 ADMIN: Delete zone
 router.delete('/:id', auth, async (req, res) => {
   try {
     const members = await Member.find({ zone: req.params.id });
@@ -96,24 +100,15 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-
-// 🔹 Get only head names in a specific zone
+// 🔹 ADMIN: Get only head names in a specific zone
 router.get('/:id/people', auth, async (req, res) => {
   try {
     const heads = await Member.find({ zone: req.params.id }, '_id headName');
-
-    // Format result: { _id, name }
-    const result = heads.map(h => ({
-      _id: h._id,
-      name: h.headName
-    }));
-
-    res.json(result);
+    res.json(heads.map(h => ({ _id: h._id, name: h.headName })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 module.exports = router;

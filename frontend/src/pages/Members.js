@@ -41,13 +41,11 @@ export default function Members() {
   });
   const [generatingPdfId, setGeneratingPdfId] = useState(null);
 
-  // Fetch members and zones on mount
   useEffect(() => {
     loadMembers();
     loadZones();
   }, []);
 
-  // Filter members by search
   useEffect(() => {
     const results = members.filter(member => {
       const searchLower = searchTerm.toLowerCase();
@@ -70,7 +68,7 @@ export default function Members() {
       setMembers(response);
       setFilteredMembers(response);
     } catch (err) {
-      showSnackbar('Failed to fetch members: ' + (err.message || ''), 'error');
+      showSnackbar('સભ્યો મેળવવામાં નિષ્ફળ: ' + (err.message || ''), 'error');
     } finally {
       setLoading(false);
     }
@@ -82,7 +80,7 @@ export default function Members() {
       const response = await getZones();
       setZones(response);
     } catch (err) {
-      showSnackbar('Failed to fetch zones: ' + (err.message || ''), 'error');
+      showSnackbar('ઝોન મેળવવામાં નિષ્ફળ: ' + (err.message || ''), 'error');
     } finally {
       setLoadingZones(false);
     }
@@ -91,14 +89,26 @@ export default function Members() {
   const handleGenerateCard = async (memberId) => {
     try {
       setGeneratingPdfId(memberId);
-      const res = await api.get(`/members/${memberId}/pdf`, { responseType: 'blob' });
-      const blob = new Blob([res.data], { type: 'application/pdf' });
+
+      const res = await api.get(`/members/${memberId}/pdf`, { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+
+      // Create blob URL
       const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+      // Open in browser PDF viewer (preview + download option)
+      const newWindow = window.open(url, "_blank");
+
+      // Cleanup memory
+      if (newWindow) {
+        newWindow.onbeforeunload = () => URL.revokeObjectURL(url);
+      } else {
+        // fallback in case popup is blocked
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
     } catch (err) {
-      console.error('PDF preview failed:', err);
-      showSnackbar(`PDF preview failed: ${err.message}`, 'error');
+      console.error("PDF પૂર્વદર્શન નિષ્ફળ થયું:", err);
+      showSnackbar(`PDF પૂર્વદર્શન નિષ્ફળ થયું: ${err.message}`, "error");
     } finally {
       setGeneratingPdfId(null);
     }
@@ -123,29 +133,29 @@ export default function Members() {
     try {
       if (formData._id) {
         await updateMember(formData._id, formData);
-        showSnackbar('Member updated successfully', 'success');
+        showSnackbar('સભ્ય સફળતાપૂર્વક અપડેટ થયો', 'success');
       } else {
         await createMember(formData);
-        showSnackbar('Member added successfully', 'success');
+        showSnackbar('સભ્ય સફળતાપૂર્વક ઉમેરાયો', 'success');
       }
       await loadMembers();
       handleCloseDialog();
     } catch (err) {
-      const message = err.response?.data?.error || err.message || 'Failed to save member';
+      const message = err.response?.data?.error || err.message || 'સભ્ય સાચવવામાં નિષ્ફળ';
       showSnackbar(message, 'error');
-      throw err; // Let MemberForm handle field-level errors like uniqueNumber
+      throw err;
     }
   };
 
   const handleDeleteMember = async (memberId) => {
-    if (!window.confirm('Are you sure you want to delete this member?')) return;
+    if (!window.confirm('શું તમે આ સભ્યને કાઢી નાખવા ઈચ્છો છો?')) return;
     
     try {
       await deleteMember(memberId);
-      showSnackbar('Member deleted successfully', 'success');
+      showSnackbar('સભ્ય કાઢી નાખવામાં આવ્યો', 'success');
       await loadMembers();
     } catch (err) {
-      const message = err.response?.data?.error || err.message || 'Failed to delete member';
+      const message = err.response?.data?.error || err.message || 'સભ્ય કાઢવામાં નિષ્ફળ';
       showSnackbar(message, 'error');
     }
   };
@@ -170,7 +180,7 @@ export default function Members() {
       }}>
         <TextField
           variant="outlined"
-          placeholder="Search members..."
+          placeholder="સભ્યો શોધો..."
           size="small"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -191,7 +201,7 @@ export default function Members() {
           onClick={handleAddMember}
           disabled={loadingZones}
         >
-          Add Member
+          સભ્ય ઉમેરો
         </Button>
       </Box>
 
@@ -201,7 +211,7 @@ export default function Members() {
         </Box>
       ) : filteredMembers.length === 0 ? (
         <Box sx={{ textAlign: 'center', mt: 4 }}>
-          {searchTerm ? 'No matching members found' : 'No members available'}
+          {searchTerm ? 'કોઈ મેળ ખાતો સભ્ય મળ્યો નથી' : 'કોઈ સભ્યો ઉપલબ્ધ નથી'}
         </Box>
       ) : (
         <Grid container spacing={3}>
@@ -226,7 +236,7 @@ export default function Members() {
         maxWidth="md"
       >
         <DialogTitle>
-          {currentMember ? 'Edit Member' : 'Add New Member'}
+          {currentMember ? 'સભ્ય સંપાદિત કરો' : 'નવો સભ્ય ઉમેરો'}
         </DialogTitle>
         <DialogContent dividers>
           <MemberForm 

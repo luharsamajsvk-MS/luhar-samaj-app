@@ -4,14 +4,15 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 
-// Route imports
+// ✅ Route imports
 const authRoutes = require('./routes/auth');
 const memberRoutes = require('./routes/members');
 const zoneRoutes = require('./routes/zones');
 const pdfRoutes = require('./routes/pdf');
-const dashboardRoute = require('./routes/dashboard'); // Make sure this file exists
+const dashboardRoute = require('./routes/dashboard');
 const zoneStickersRouter = require('./routes/zoneStickers');
 const adminRoutes = require('./routes/admin'); 
+const requestRoutes = require('./routes/requests'); // <-- NEW for public requests
 
 const app = express();
 
@@ -26,13 +27,11 @@ app.use(cors({
   credentials: true
 }));
 
-// Middleware
-app.use(express.json());
+// ✅ Middleware
+app.use(express.json({ limit: '10mb' })); // allow large JSON (e.g. images/base64)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/api/zones', zoneStickersRouter);
-app.use('/api', adminRoutes);
 
-// Database Connection
+// ✅ Database Connection
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected successfully'))
   .catch(err => {
@@ -44,19 +43,22 @@ mongoose.connection.on('connecting', () => console.log('Connecting to MongoDB...
 mongoose.connection.on('connected', () => console.log('MongoDB connected!'));
 mongoose.connection.on('error', (err) => console.error('MongoDB connection error:', err));
 
-// Health check route
+// ✅ Health check route
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, message: 'Backend is working fine ✅' });
 });
 
-// Routes
+// ✅ Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/members', memberRoutes);
 app.use('/api/zones', zoneRoutes);
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/dashboard', dashboardRoute);
+app.use('/api/zones', zoneStickersRouter);
+app.use('/api', adminRoutes);
+app.use('/api/requests', requestRoutes); // <-- Mount new requests route
 
-// Error Handling Middleware
+// ✅ Error Handling Middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal Server Error' });

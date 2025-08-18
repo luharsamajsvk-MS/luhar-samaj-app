@@ -17,6 +17,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 const Header = () => {
   const navigate = useNavigate();
   const isLoggedIn = localStorage.getItem('token');
+  const userRole = localStorage.getItem('userRole'); // 👈 get role
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const handleLogout = () => {
@@ -29,14 +30,19 @@ const Header = () => {
     setDrawerOpen(open);
   };
 
-  // Menu items
+  // Menu items (Gujarati labels)
   const menuItems = [
-    { text: 'Home', path: '/' },
+    { text: 'હોમ', path: '/' },
     ...(isLoggedIn
       ? [
-          { text: 'Dashboard', path: '/dashboard' },
-          { text: 'Members', path: '/members' },
-          { text: 'Zones', path: '/zones' },
+          { text: 'ડેશબોર્ડ', path: '/dashboard' },
+          { text: 'સભ્યો', path: '/members' },
+          { text: 'ઝોન', path: '/zones' },
+          ...(userRole === 'admin'
+            ? [
+                { text: 'વિનંતીઓ', path: '/requests' },
+              ]
+            : []),
         ]
       : []),
   ];
@@ -47,7 +53,7 @@ const Header = () => {
         <Toolbar>
           {/* Left side - App Name */}
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Luhar Samaj Management
+            લુહાર સમાજ મેનેજમેન્ટ
           </Typography>
 
           {/* Desktop Menu (hidden on xs) */}
@@ -64,7 +70,7 @@ const Header = () => {
             ))}
             {isLoggedIn && (
               <Button color="inherit" onClick={handleLogout}>
-                Logout
+                લોગઆઉટ
               </Button>
             )}
           </Box>
@@ -97,7 +103,7 @@ const Header = () => {
             ))}
             {isLoggedIn && (
               <ListItem button onClick={handleLogout}>
-                <ListItemText primary="Logout" />
+                <ListItemText primary="લોગઆઉટ" />
               </ListItem>
             )}
           </List>

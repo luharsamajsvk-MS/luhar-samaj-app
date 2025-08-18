@@ -4,17 +4,17 @@ const mongoose = require("mongoose");
 const familyMemberSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
+    required: true,   // required if family member exists
     trim: true
   },
   relation: {
     type: String,
-    required: true,
+    required: true,   // required if family member exists
     trim: true
   },
   age: {
     type: Number,
-    required: true  // <-- ensure age is saved
+    required: true    // required if family member exists
   }
 });
 
@@ -31,11 +31,11 @@ const memberSchema = new mongoose.Schema({
     trim: true
   },
   uniqueNumber: {    
-  type: String,
-  required: true,
-  unique: true, // ensures MongoDB uniqueness
-  trim: true
-},
+    type: String,
+    required: true,
+    unique: true, // ensures MongoDB uniqueness
+    trim: true
+  },
   address: {
     type: String,
     required: true,
@@ -50,7 +50,10 @@ const memberSchema = new mongoose.Schema({
     ref: 'Zone',
     required: true
   },
-  familyMembers: [familyMemberSchema],  // <-- now includes age
+  familyMembers: {
+    type: [familyMemberSchema], // optional array
+    default: []
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

@@ -1,4 +1,4 @@
-// MemberForm.js
+// frontend/src/pages/MemberForm.js
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { 
@@ -21,7 +21,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
   const [formData, setFormData] = useState({
     headName: '',
     rationNo: '',
-    uniqueNumber: '',
+    sabhyaNumber: '',   // ✅ renamed
     address: '',
     mobile: '',
     zone: '',
@@ -41,7 +41,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
         _id: memberToEdit._id,
         headName: memberToEdit.headName,
         rationNo: memberToEdit.rationNo,
-        uniqueNumber: memberToEdit.uniqueNumber || '',
+        sabhyaNumber: memberToEdit.sabhyaNumber || memberToEdit.uniqueNumber || '', // ✅ support old field too
         address: memberToEdit.address,
         mobile: memberToEdit.mobile || '',
         zone: zoneId || '',
@@ -57,7 +57,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
       setFormData({
         headName: '',
         rationNo: '',
-        uniqueNumber: '',
+        sabhyaNumber: '',
         address: '',
         mobile: '',
         zone: '',
@@ -104,13 +104,13 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
     setIsSubmitting(true);
 
     // Validate required fields
-    if (!formData.headName || !formData.rationNo || !formData.uniqueNumber || !formData.address || !formData.zone) {
-      setError('Please fill in all required fields');
+    if (!formData.headName || !formData.rationNo || !formData.sabhyaNumber || !formData.address || !formData.zone) {
+      setError('કૃપા કરીને બધા ફરજિયાત ક્ષેત્રો ભરો');
       setIsSubmitting(false);
       return;
     }
 
-    // Clean family members: remove incomplete ones and cast age to Number
+    // Family members not mandatory (only filter valid ones)
     const cleanedFamily = formData.familyMembers
       .filter(m => m.name && m.relation && m.age)
       .map(m => ({
@@ -118,20 +118,14 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
         age: Number(m.age)
       }));
 
-    if (cleanedFamily.length === 0) {
-      setError('Please enter at least one valid family member');
-      setIsSubmitting(false);
-      return;
-    }
-
     try {
       await onSave({ 
         ...formData, 
+        uniqueNumber: formData.sabhyaNumber, // ✅ map to old backend field
         familyMembers: cleanedFamily 
       });
     } catch (err) {
-      // Show backend errors (like uniqueNumber duplicate)
-      setError(err.response?.data?.error || err.message || 'An error occurred while saving');
+      setError(err.response?.data?.error || err.message || 'સાચવવામાં ભૂલ આવી');
     } finally {
       setIsSubmitting(false);
     }
@@ -146,7 +140,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Head of Family *"
+            label="મુખ્ય સભ્યનું નામ *"
             name="headName"
             value={formData.headName}
             onChange={handleChange}
@@ -158,7 +152,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Ration Card Number *"
+            label="રેશન કાર્ડ નંબર *"
             name="rationNo"
             value={formData.rationNo}
             onChange={handleChange}
@@ -166,13 +160,13 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
           />
         </Grid>
 
-        {/* Unique Number */}
+        {/* Sabhya Number */}
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Unique Number *"
-            name="uniqueNumber"
-            value={formData.uniqueNumber}
+            label="સભ્ય નંબર *"
+            name="sabhyaNumber"
+            value={formData.sabhyaNumber}
             onChange={handleChange}
             required
           />
@@ -182,7 +176,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Mobile Number"
+            label="મોબાઇલ નંબર"
             name="mobile"
             value={formData.mobile}
             onChange={handleChange}
@@ -193,7 +187,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Address *"
+            label="સરનામું *"
             name="address"
             value={formData.address}
             onChange={handleChange}
@@ -206,14 +200,14 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
         {/* Zone Selection */}
         <Grid item xs={12} md={6}>
           <FormControl fullWidth required>
-            <InputLabel>Zone *</InputLabel>
+            <InputLabel>ઝોન *</InputLabel>
             <Select
               name="zone"
               value={formData.zone}
               onChange={handleChange}
               disabled={loadingZones}
             >
-              <MenuItem value="" disabled>Select a zone</MenuItem>
+              <MenuItem value="" disabled>ઝોન પસંદ કરો</MenuItem>
               {loadingZones ? (
                 <MenuItem disabled>
                   <CircularProgress size={24} />
@@ -232,7 +226,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
         {/* Family Members */}
         <Grid item xs={12}>
           <Typography variant="h6" gutterBottom>
-            Family Members *
+            પરિવારના સભ્યો (વૈકલ્પિક)
           </Typography>
         </Grid>
         
@@ -241,7 +235,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
-                label={`Member ${index + 1} Name`}
+                label={`સભ્ય ${index + 1} નામ`}
                 name="name"
                 value={member.name}
                 onChange={(e) => handleFamilyMemberChange(index, e)}
@@ -250,7 +244,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
-                label="Relation"
+                label="સંબંધ"
                 name="relation"
                 value={member.relation}
                 onChange={(e) => handleFamilyMemberChange(index, e)}
@@ -260,7 +254,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
               <TextField
                 fullWidth
                 type="number"
-                label="Age"
+                label="ઉંમર"
                 name="age"
                 value={member.age}
                 onChange={(e) => handleFamilyMemberChange(index, e)}
@@ -271,7 +265,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
                 <IconButton 
                   color="error"
                   onClick={() => removeFamilyMember(index)}
-                  aria-label="remove member"
+                  aria-label="સભ્ય કાઢો"
                 >
                   <DeleteIcon />
                 </IconButton>
@@ -288,7 +282,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
             startIcon={<AddIcon />}
             sx={{ mr: 2 }}
           >
-            Add Family Member
+            સભ્ય ઉમેરો
           </Button>
         </Grid>
         
@@ -304,9 +298,9 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
             {isSubmitting ? (
               <CircularProgress size={24} />
             ) : memberToEdit ? (
-              'Update Member'
+              'સભ્ય સુધારો'
             ) : (
-              'Save Member'
+              'સભ્ય સાચવો'
             )}
           </Button>
         </Grid>
