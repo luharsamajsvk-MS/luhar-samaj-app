@@ -56,6 +56,7 @@ export default function Members() {
         member.rationNo?.toLowerCase().includes(searchLower) ||
         member.mobile?.toLowerCase().includes(searchLower) ||
         member.address?.toLowerCase().includes(searchLower) ||
+        member.uniqueNumber?.toLowerCase().includes(searchLower) ||
         (member.zone?.name && member.zone.name.toLowerCase().includes(searchLower))
       );
     });

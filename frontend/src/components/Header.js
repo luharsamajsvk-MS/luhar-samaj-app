@@ -1,10 +1,23 @@
-import React from 'react';
-import { AppBar, Toolbar, Typography, Button } from '@mui/material';
+import React, { useState } from 'react';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  IconButton,
+  Drawer,
+  List,
+  ListItem,
+  ListItemText,
+  Box,
+} from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
+import MenuIcon from '@mui/icons-material/Menu';
 
 const Header = () => {
   const navigate = useNavigate();
   const isLoggedIn = localStorage.getItem('token');
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -12,37 +25,85 @@ const Header = () => {
     navigate('/login');
   };
 
+  const toggleDrawer = (open) => () => {
+    setDrawerOpen(open);
+  };
+
+  // Menu items
+  const menuItems = [
+    { text: 'Home', path: '/' },
+    ...(isLoggedIn
+      ? [
+          { text: 'Dashboard', path: '/dashboard' },
+          { text: 'Members', path: '/members' },
+          { text: 'Zones', path: '/zones' },
+        ]
+      : []),
+  ];
+
   return (
-    <AppBar position="static">
-      <Toolbar>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Luhar Samaj Management
-        </Typography>
+    <>
+      <AppBar position="static">
+        <Toolbar>
+          {/* Left side - App Name */}
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            Luhar Samaj Management
+          </Typography>
 
-        {/* Home should always be visible */}
-        <Button color="inherit" component={Link} to="/">
-          Home
-        </Button>
+          {/* Desktop Menu (hidden on xs) */}
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2 }}>
+            {menuItems.map((item) => (
+              <Button
+                key={item.text}
+                color="inherit"
+                component={Link}
+                to={item.path}
+              >
+                {item.text}
+              </Button>
+            ))}
+            {isLoggedIn && (
+              <Button color="inherit" onClick={handleLogout}>
+                Logout
+              </Button>
+            )}
+          </Box>
 
-        {/* Other buttons only if logged in */}
-        {isLoggedIn && (
-          <>
-            <Button color="inherit" component={Link} to="/dashboard">
-              Dashboard
-            </Button>
-            <Button color="inherit" component={Link} to="/members">
-              Members
-            </Button>
-            <Button color="inherit" component={Link} to="/zones">
-              Zones
-            </Button>
-            <Button color="inherit" onClick={handleLogout}>
-              Logout
-            </Button>
-          </>
-        )}
-      </Toolbar>
-    </AppBar>
+          {/* Mobile Menu Button (hidden on md+) */}
+          <IconButton
+            edge="end"
+            color="inherit"
+            sx={{ display: { xs: 'flex', md: 'none' } }}
+            onClick={toggleDrawer(true)}
+          >
+            <MenuIcon />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
+
+      {/* Drawer for mobile */}
+      <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
+        <Box sx={{ width: 250 }} role="presentation" onClick={toggleDrawer(false)}>
+          <List>
+            {menuItems.map((item) => (
+              <ListItem
+                button
+                key={item.text}
+                component={Link}
+                to={item.path}
+              >
+                <ListItemText primary={item.text} />
+              </ListItem>
+            ))}
+            {isLoggedIn && (
+              <ListItem button onClick={handleLogout}>
+                <ListItemText primary="Logout" />
+              </ListItem>
+            )}
+          </List>
+        </Box>
+      </Drawer>
+    </>
   );
 };
 

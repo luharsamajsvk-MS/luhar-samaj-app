@@ -94,10 +94,20 @@ const Dashboard = () => {
               sx: { color: `${color}.dark` } 
             })}
           </Box>
-          <Typography variant="h6" color="text.secondary">{title}</Typography>
+          <Typography 
+            variant="subtitle1" 
+            sx={{ fontWeight: 600 }}
+            color="text.secondary"
+          >
+            {title}
+          </Typography>
         </Box>
         <Box flexGrow={1} display="flex" alignItems="flex-end">
-          <Typography variant="h4" component="div" sx={{ fontWeight: 700 }}>
+          <Typography 
+            variant="h5" 
+            component="div" 
+            sx={{ fontWeight: 700 }}
+          >
             {value}
           </Typography>
         </Box>
@@ -107,13 +117,24 @@ const Dashboard = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+      {/* Header */}
+      <Box 
+        display="flex" 
+        flexDirection={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between" 
+        alignItems={{ xs: 'flex-start', sm: 'center' }} 
+        mb={4}
+        gap={2}
+      >
+        <Typography 
+          variant="h4" 
+          sx={{ fontWeight: 700, fontSize: { xs: '1.5rem', md: '2rem' } }}
+        >
           સમાજ ડેશબોર્ડ
         </Typography>
         <Box display="flex" alignItems="center">
           <TrendingUpIcon color="primary" sx={{ mr: 1 }} />
-          <Typography variant="subtitle1" color="primary">
+          <Typography variant="subtitle2" color="primary">
             છેલ્લે અપડેટ થયેલ: આજે
           </Typography>
         </Box>
@@ -121,7 +142,7 @@ const Dashboard = () => {
 
       {/* Stats Cards */}
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <StatCard 
             title="કુલ કુટુંબો" 
             value={stats.totalMembers} 
@@ -129,7 +150,7 @@ const Dashboard = () => {
             color="primary" 
           />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <StatCard 
             title="કુલ લોકો" 
             value={stats.totalPeople} 
@@ -137,7 +158,7 @@ const Dashboard = () => {
             color="secondary" 
           />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} md={4}>
           <StatCard 
             title="ઝોન" 
             value={stats.totalZones} 
@@ -153,7 +174,7 @@ const Dashboard = () => {
           <Card sx={{ boxShadow: theme.shadows[3], height: '100%' }}>
             <CardContent>
               <Typography variant="h6" mb={2}>ઝોન પ્રમાણે લોકોનું વિતરણ</Typography>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={stats.zoneDistribution || []}>
                   <XAxis dataKey="name" />
                   <YAxis />
