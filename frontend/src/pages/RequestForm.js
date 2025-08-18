@@ -188,7 +188,7 @@ export default function RequestForm() {
                   key={idx}
                   sx={{ mb: 1 }}
                 >
-                  <Grid item xs={4}>
+                  <Grid item xs={12} sm={4}>
                     <TextField
                       label="નામ"
                       placeholder="સભ્યનું નામ લખો"
@@ -199,7 +199,7 @@ export default function RequestForm() {
                       fullWidth
                     />
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid item xs={12} sm={4}>
                     <TextField
                       label="સબંધ"
                       placeholder="વડાના સબંધમાં"
@@ -210,11 +210,11 @@ export default function RequestForm() {
                       fullWidth
                     />
                   </Grid>
-                  <Grid item xs={3}>
+                  <Grid item xs={12} sm={3}>
                     <TextField
                       label="ઉંમર"
                       placeholder="ઉંમર લખો"
-                      type="number"
+                      type="text"
                       value={m.age}
                       onChange={(e) =>
                         handleMemberChange(idx, "age", e.target.value)
@@ -222,7 +222,7 @@ export default function RequestForm() {
                       fullWidth
                     />
                   </Grid>
-                  <Grid item xs={1}>
+                  <Grid item xs={12} sm={1}>
                     <IconButton onClick={() => removeMember(idx)}>
                       <Delete />
                     </IconButton>

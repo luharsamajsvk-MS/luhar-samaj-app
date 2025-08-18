@@ -253,7 +253,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
             <Grid item xs={10} sm={3}>
               <TextField
                 fullWidth
-                type="number"
+                type="text"
                 label="ઉંમર"
                 name="age"
                 value={member.age}
