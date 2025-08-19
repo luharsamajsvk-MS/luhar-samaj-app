@@ -79,7 +79,16 @@ export default function Requests() {
       <Stack spacing={0.5}>
         {list.map((m, idx) => (
           <Typography key={idx} variant="body2">
-            {m?.name || "-"}
+            {m?.name || "-"}{" "}
+            {m?.age && (
+              <Typography
+                component="span"
+                variant="caption"
+                color="text.secondary"
+              >
+                ({m.age})
+              </Typography>
+            )}
           </Typography>
         ))}
       </Stack>
