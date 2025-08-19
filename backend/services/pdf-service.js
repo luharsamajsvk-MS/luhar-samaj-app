@@ -97,7 +97,7 @@
 
       // Head name
       doc.font('bold')
-        .fontSize(65)
+        .fontSize(55)
         .fillColor('red')
         .text(member.headName, 38, 250, {
           width: 700,
