@@ -115,7 +115,7 @@ const MemberForm = ({ onSave, zones, loadingZones, memberToEdit }) => {
       .filter(m => m.name && m.relation && m.age)
       .map(m => ({
         ...m,
-        age: Number(m.age)
+        age: m.age
       }));
 
     try {
