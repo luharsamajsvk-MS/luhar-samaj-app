@@ -20,8 +20,11 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
+  TablePagination,
+  TableSortLabel,
+  InputAdornment,
 } from "@mui/material";
-import { Check, Close } from "@mui/icons-material";
+import { Check, Close, Search } from "@mui/icons-material";
 import {
   getRequests,
   approveRequest,
@@ -31,18 +34,29 @@ import {
 
 export default function Requests() {
   const [rows, setRows] = useState([]);
+  const [filteredRows, setFilteredRows] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  
+  // Pagination & Sorting
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [order, setOrder] = useState("desc");
+  const [orderBy, setOrderBy] = useState("createdAt");
+  
+  // Search
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Dialog states
   const [approveOpen, setApproveOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [sabhyaNo, setSabhyaNo] = useState(""); 
-
+  
   const [submitting, setSubmitting] = useState(false);
   const [declineOpen, setDeclineOpen] = useState(false);
-
   const [zones, setZones] = useState([]);
   const [zoneMap, setZoneMap] = useState({});
-
+  
+  // Snackbar
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -57,20 +71,25 @@ export default function Requests() {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  // Enhanced zone rendering
   const renderZone = (r) => {
     const z = r?.payload?.zone;
     if (!z) return "-";
+    
     if (typeof z === "string") {
       return zoneMap[z] || z;
     }
+    
     if (typeof z === "object") {
       return z.number && z.name
         ? `${z.number} - ${z.name}`
         : z.name || z.number || "-";
     }
+    
     return "-";
   };
 
+  // Enhanced family members rendering
   const renderFamilyNames = (r) => {
     const list = r?.payload?.familyMembers;
     if (!Array.isArray(list) || list.length === 0) return "-";
@@ -102,6 +121,7 @@ export default function Requests() {
         getRequests(),
         getZones(),
       ]);
+      
       setRows(reqs || []);
       setZones(zs || []);
 
@@ -120,6 +140,57 @@ export default function Requests() {
   useEffect(() => {
     load();
   }, []);
+
+  // Apply search filter whenever rows or searchTerm changes
+  useEffect(() => {
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      const filtered = rows.filter((row) => {
+        return (
+          (row?.payload?.headName?.toLowerCase() || "").includes(term) ||
+          (row?.payload?.mobile?.toLowerCase() || "").includes(term) ||
+          (row?.payload?.rationNo?.toLowerCase() || "").includes(term) ||
+          (renderZone(row).toLowerCase() || "").includes(term)
+        );
+      });
+      setFilteredRows(filtered);
+    } else {
+      setFilteredRows([...rows]);
+    }
+    setPage(0); // Reset to first page when search changes
+  }, [searchTerm, rows]);
+
+  // Handle sorting
+  const handleRequestSort = (property) => {
+    const isAsc = orderBy === property && order === "asc";
+    setOrder(isAsc ? "desc" : "asc");
+    setOrderBy(property);
+  };
+
+  // Sort rows based on order and orderBy
+  const getSortedRows = () => {
+    return filteredRows.sort((a, b) => {
+      let comparison = 0;
+      
+      if (orderBy === "createdAt") {
+        const dateA = new Date(a.createdAt);
+        const dateB = new Date(b.createdAt);
+        comparison = dateA - dateB;
+      } else {
+        const valA = a.payload?.[orderBy] || "";
+        const valB = b.payload?.[orderBy] || "";
+        comparison = valA.localeCompare(valB);
+      }
+      
+      return order === "desc" ? -comparison : comparison;
+    });
+  };
+
+  // Paginated rows
+  const paginatedRows = getSortedRows().slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   const onOpenApprove = (row) => {
     setSelected(row);
@@ -169,58 +240,130 @@ export default function Requests() {
           બાકી રહેલ નોંધણી અરજીઓ
         </Typography>
 
-        <Paper sx={{ p: 2, borderRadius: 3 }}>
+        {/* Search Bar */}
+        <TextField
+          variant="outlined"
+          placeholder="શોધો..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ 
+            maxWidth: 400,
+            "& .MuiOutlinedInput-root": { 
+              borderRadius: 3,
+              backgroundColor: "background.paper"
+            }
+          }}
+        />
+
+        <Paper sx={{ p: 2, borderRadius: 3, overflow: "hidden" }}>
           {loading ? (
             <Stack alignItems="center" sx={{ py: 6 }}>
               <CircularProgress />
             </Stack>
           ) : (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>મુખ્ય સભ્ય નામ</TableCell>
-                  <TableCell>મોબાઇલ</TableCell>
-                  <TableCell>ઝોન</TableCell>
-                  <TableCell>પરિવારના સભ્યો</TableCell>
-                  <TableCell>રેશન નંબર</TableCell>
-                  <TableCell>સરનામું</TableCell>
-                  <TableCell>તારીખ</TableCell>
-                  <TableCell align="right">ક્રિયા</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.length === 0 && (
+            <>
+              <Table>
+                <TableHead>
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      કોઈ બાકી અરજીઓ નથી
-                    </TableCell>
-                  </TableRow>
-                )}
-                {rows.map((r) => (
-                  <TableRow key={r._id} hover>
-                    <TableCell>{r?.payload?.headName || "-"}</TableCell>
-                    <TableCell>{r?.payload?.mobile || "-"}</TableCell>
-                    <TableCell>{renderZone(r)}</TableCell>
-                    <TableCell>{renderFamilyNames(r)}</TableCell>
-                    <TableCell>{r?.payload?.rationNo || "-"}</TableCell>
-                    <TableCell>{r?.payload?.address || "-"}</TableCell>
                     <TableCell>
-                      {r.createdAt
-                        ? new Date(r.createdAt).toLocaleString()
-                        : "-"}
+                      <TableSortLabel
+                        active={orderBy === "headName"}
+                        direction={orderBy === "headName" ? order : "asc"}
+                        onClick={() => handleRequestSort("headName")}
+                      >
+                        મુખ્ય સભ્ય નામ
+                      </TableSortLabel>
                     </TableCell>
-                    <TableCell align="right">
-                      <IconButton onClick={() => onOpenApprove(r)} title="મંજૂર કરો">
-                        <Check />
-                      </IconButton>
-                      <IconButton onClick={() => onOpenDecline(r)} title="નામંજૂર કરો">
-                        <Close />
-                      </IconButton>
+                    <TableCell>મોબાઇલ</TableCell>
+                    <TableCell>ઝોન</TableCell>
+                    <TableCell>પરિવારના સભ્યો</TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={orderBy === "rationNo"}
+                        direction={orderBy === "rationNo" ? order : "asc"}
+                        onClick={() => handleRequestSort("rationNo")}
+                      >
+                        રેશન નંબર
+                      </TableSortLabel>
                     </TableCell>
+                    <TableCell>સરનામું</TableCell>
+                    <TableCell>
+                      <TableSortLabel
+                        active={orderBy === "createdAt"}
+                        direction={orderBy === "createdAt" ? order : "desc"}
+                        onClick={() => handleRequestSort("createdAt")}
+                      >
+                        તારીખ
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell align="right">ક્રિયા</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {filteredRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} align="center">
+                        {searchTerm 
+                          ? "કોઈ અરજીઓ મળી નથી" 
+                          : "કોઈ બાકી અરજીઓ નથી"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedRows.map((r) => (
+                      <TableRow key={r._id} hover>
+                        <TableCell>{r?.payload?.headName || "-"}</TableCell>
+                        <TableCell>{r?.payload?.mobile || "-"}</TableCell>
+                        <TableCell>{renderZone(r)}</TableCell>
+                        <TableCell>{renderFamilyNames(r)}</TableCell>
+                        <TableCell>{r?.payload?.rationNo || "-"}</TableCell>
+                        <TableCell>{r?.payload?.address || "-"}</TableCell>
+                        <TableCell>
+                          {r.createdAt
+                            ? new Date(r.createdAt).toLocaleString()
+                            : "-"}
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton onClick={() => onOpenApprove(r)} title="મંજૂર કરો">
+                            <Check color="success" />
+                          </IconButton>
+                          <IconButton onClick={() => onOpenDecline(r)} title="નામંજૂર કરો">
+                            <Close color="error" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              
+              {/* Pagination */}
+              {filteredRows.length > 0 && (
+                <TablePagination
+                  rowsPerPageOptions={[5, 10, 25]}
+                  component="div"
+                  count={filteredRows.length}
+                  rowsPerPage={rowsPerPage}
+                  page={page}
+                  onPageChange={(_, newPage) => setPage(newPage)}
+                  onRowsPerPageChange={(e) => {
+                    setRowsPerPage(parseInt(e.target.value, 10));
+                    setPage(0);
+                  }}
+                  labelRowsPerPage="પ્રતિ પૃષ્ઠ:"
+                  labelDisplayedRows={({ from, to, count }) => 
+                    `${from}-${to} / ${count}`
+                  }
+                  sx={{ borderTop: "1px solid rgba(224, 224, 224, 1)" }}
+                />
+              )}
+            </>
           )}
         </Paper>
       </Stack>
@@ -238,6 +381,7 @@ export default function Requests() {
             onChange={(e) => setSabhyaNo(e.target.value)}
             fullWidth
             autoFocus
+            inputProps={{ maxLength: 10 }}
           />
         </DialogContent>
         <DialogActions>
