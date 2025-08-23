@@ -96,13 +96,17 @@
       );
 
       // Head name
-      doc.font('bold')
-        .fontSize(55)
-        .fillColor('red')
-        .text(member.headName, 38, 250, {
-          width: 700,
-          ellipsis: true
-        });
+      // Head name (auto-fit inside a rectangle)
+      fitText(
+        doc,
+        member.headName,
+        'bold',      // font
+        'red',       // color
+        55,          // initial font size (max)
+        38, 250,     // x1, y1 (top-left corner of box)
+        738, 320     // x2, y2 (bottom-right corner of box)
+      );
+
 
       // Address
       const lineHeight = 40;
