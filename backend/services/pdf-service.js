@@ -1,198 +1,186 @@
-  const PDFDocument = require('pdfkit');
-  const path = require('path');
-  const fs = require('fs');
-  const Member = require('../models/Member');
-  const QRCode = require('qrcode'); // QR code generator
+// backend/services/pdf-service.js
+const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
+const Member = require('../models/Member');
+const QRCode = require('qrcode');
 
-  /**
-   * Fit text in a given rectangle by shrinking font size if needed
-   */
-  function fitText(doc, text, font, color, initialSize, x1, y1, x2, y2) {
-    const boxWidth = x2 - x1;
-    const boxHeight = y2 - y1;
-    let fontSize = initialSize;
+/**
+ * Detect if text contains Gujarati characters
+ */
+function isGujarati(text = '') {
+  return /[\u0A80-\u0AFF]/.test(text);
+}
 
-    doc.font(font).fillColor(color);
+/**
+ * Fit text in a given rectangle by shrinking font size if needed
+ */
+function fitText(doc, text, font, color, initialSize, x1, y1, x2, y2, align = 'left') {
+  if (!text) return;
 
-    while (
-      (doc.widthOfString(text, { fontSize }) > boxWidth || fontSize > boxHeight) &&
-      fontSize > 6
-    ) {
-      fontSize -= 1;
-    }
+  const boxWidth = x2 - x1;
+  const boxHeight = y2 - y1;
+  let fontSize = initialSize;
 
-    const textY = y1 + (boxHeight - fontSize) / 2;
-    doc.fontSize(fontSize).text(text, x1, textY, {
-      width: boxWidth,
-      align: 'left'
-    });
+  try {
+    doc.font(font);
+  } catch (e) {
+    doc.font('Helvetica');
+  }
+  doc.fillColor(color).fontSize(fontSize);
+
+  while (doc.widthOfString(text) > boxWidth && fontSize > 6) {
+    fontSize -= 1;
+    doc.fontSize(fontSize);
   }
 
-  async function generateCard(memberId) {
-    try {
-      const member = await Member.findById(memberId).populate('zone');
-      if (!member) throw new Error('Member not found');
+  const textWidth = doc.widthOfString(text);
+  const textHeight = fontSize;
+  const textY = y1 + (boxHeight - textHeight) / 2;
+  let textX = x1;
+  if (align === 'center') {
+    textX = x1 + (boxWidth - textWidth) / 2;
+  } else if (align === 'right') {
+    textX = x2 - textWidth;
+  }
 
-      let totalPeople = 0;
-      if (member.zone?._id) {
-        totalPeople = await Member.countDocuments({ zone: member.zone._id });
-      }
+  doc.text(text, textX, textY, {
+    width: boxWidth,
+    height: boxHeight,
+    align: align
+  });
+}
 
-      const templatePath = path.join(__dirname, '../assets/templates/card_template.png');
-      const stampPath = path.join(__dirname, '../assets/stamps/org_stamp.png');
+async function generateCard(memberId) {
+  try {
+    const member = await Member.findById(memberId).populate('zone');
+    if (!member) throw new Error('Member not found');
 
-      // === Fonts (Gujarati-safe) ===
-      const fontRegular = path.join(__dirname, '../assets/fonts/NotoSansGujarati-Regular.ttf');
-      const fontBold = path.join(__dirname, '../assets/fonts/NotoSansGujarati-Bold.ttf');
+    const templatePath = path.join(__dirname, '../assets/templates/card_template.png');
+    const stampPath = path.join(__dirname, '../assets/stamps/org_stamp.png');
+    const fontRegular = path.join(__dirname, '../assets/fonts/NotoSansGujarati-Regular.ttf');
+    const fontBold = path.join(__dirname, '../assets/fonts/NotoSansGujarati-Bold.ttf');
 
-      if (!fs.existsSync(fontRegular) || !fs.existsSync(fontBold)) {
-        throw new Error("Gujarati fonts not found in assets/fonts/ — please add NotoSansGujarati-Regular.ttf & Bold.ttf");
-      }
+    if (!fs.existsSync(fontRegular) || !fs.existsSync(fontBold)) {
+      throw new Error("Gujarati fonts not found in assets/fonts/ — add NotoSansGujarati-Regular.ttf & Bold.ttf");
+    }
 
-      const doc = new PDFDocument({
-        size: [900, 1200],
-        margin: 0
-      });
+    const doc = new PDFDocument({ size: [900, 1200], margin: 0 });
+    const buffers = [];
+    doc.on('data', buffers.push.bind(buffers));
 
-      const registrationYear = member.createdAt
-        ? new Date(member.createdAt).getFullYear()
-        : '';
+    doc.registerFont('regular', fontRegular);
+    doc.registerFont('bold', fontBold);
+    doc.image(templatePath, 0, 0, { width: 900, height: 1200 });
+    doc.opacity(0.2).image(stampPath, 310, 250, { width: 270, height: 270 }).opacity(1);
+    doc.opacity(0.2).image(stampPath, 310, 750, { width: 270, height: 270 }).opacity(1);
 
-      const buffers = [];
-      doc.on('data', buffers.push.bind(buffers));
+    const baseUrl = process.env.BASE_URL || "http://localhost:5000";
+    const qrData = `${baseUrl}/api/members/verify/${member.cardId || member._id}`;
+    const qrImageBuffer = await QRCode.toBuffer(qrData, { width: 165, margin: 1 });
+    doc.image(qrImageBuffer, 710, 250, { width: 165, height: 165 });
 
-      // === Background template ===
-      doc.image(templatePath, 0, 0, { width: 900, height: 1200 });
+    const registrationYear = member.createdAt ? new Date(member.createdAt).getFullYear() : '';
+    doc.font('bold').fontSize(35).fillColor('white').text(registrationYear, 780, 25);
 
-      // === Register Fonts ===
-      doc.registerFont('regular', fontRegular);
-      doc.registerFont('bold', fontBold);
+    const zoneText = `${member.zone?.number || ''} / ${member.uniqueNumber || member.cardId || '---'}`;
+    fitText(doc, zoneText, 'bold', 'blue', 36, 590, 491, 885, 535, 'center');
 
-      // === Watermark ===
-      doc.opacity(0.2).image(stampPath, 310, 250, { width: 270, height: 270 }).opacity(1);
-      doc.opacity(0.2).image(stampPath, 310, 750, { width: 270, height: 270 }).opacity(1);
+    let headFontSize = 55;
+    if (!isGujarati(member.head?.name)) headFontSize -= 10;
+    fitText(doc, member.head?.name || '', 'bold', 'red', headFontSize, 38, 250, 738, 320);
 
-      // === QR CODE ===
-      const baseUrl = process.env.BASE_URL || "http://localhost:5000"; 
-      const qrData = `${baseUrl}/api/members/verify/${member.cardId || member._id}`;
-      const qrImageBuffer = await QRCode.toBuffer(qrData, { width: 165, margin: 1 });
-      doc.image(qrImageBuffer, 710, 250, { width: 165, height: 165 });
+    let addressFontSize = 30;
+    if (!isGujarati(member.address)) addressFontSize -= 6;
+    doc.font('regular').fontSize(addressFontSize).fillColor('blue').text(member.address || '', 38, 335, { width: 700, height: 120, ellipsis: true, align: 'left' });
 
-      // Registration year
-      doc.font('bold')
-        .fontSize(35)
-        .fillColor('white')
-        .text(registrationYear, 780, 25);
+    doc.font('bold').fontSize(40).fillColor('red').text(`મો. : ${member.mobile || ''}`, 38, 491, { width: 800 });
 
-      // Zone info auto-fit
-      fitText(
-        doc,
-        `${member.zone?.number || ''} / ${member.zone?.name || ''}`,
-        'bold',
-        'blue',
-        36,
-        550, 491,
-        885, 535
-      );
+    const family = member.familyMembers || [];
+    for (let i = 0; i < Math.min(family.length, 8); i++) {
+      const yPos = 685 + (i * 50);
+      const famMember = family[i];
+      if (!famMember) continue;
 
-      // Head name
-      // Head name (auto-fit inside a rectangle)
-      fitText(
-        doc,
-        member.headName,
-        'bold',      // font
-        'red',       // color
-        55,          // initial font size (max)
-        38, 250,     // x1, y1 (top-left corner of box)
-        738, 320     // x2, y2 (bottom-right corner of box)
-      );
+      let famFontSize = 35;
+      if (!isGujarati(famMember.name) || !isGujarati(famMember.relation)) famFontSize -= 6;
+      
+      doc.font('regular').fontSize(famFontSize).fillColor('purple').text(`${i + 1}) ${famMember.name}`, 38, yPos, { width: 600, ellipsis: true });
+      const relationText = famMember.relation ? `(${famMember.relation}${famMember.age ? `, ${famMember.age}` : ''})` : famMember.age ? `(Age: ${famMember.age})` : '';
+      doc.font('regular').fontSize(famFontSize).fillColor('purple').text(relationText, 658, yPos, { width: 200, ellipsis: true });
+    }
 
+    const issueDateFormatted = new Date(member.createdAt).toLocaleDateString('en-GB');
+    doc.font('bold').fontSize(25).fillColor('blue').text(`Date of Issue: ${issueDateFormatted}`, 305, 1120);
 
-      // Address
-      const lineHeight = 40;
-      const maxLines = 3;
-      doc.font('regular')
-        .fontSize(30)
-        .fillColor('blue')
-        .text(member.address || '', 38, 335, {
-          width: 700,
-          height: lineHeight * maxLines,
-          ellipsis: true,
-          lineGap: 0,
-          align: 'left'
-        });
-
-              // Unique Number
-      doc.font('bold')
-        .fontSize(38)
-        .fillColor('green')
-        .text(`સભ્ય નં.: ${member.uniqueNumber || member.cardId || ''}`, 38, 445, {
-          width: 800
-        });
-
-
-      // Mobile
-      doc.font('bold')
-        .fontSize(40)
-        .fillColor('red')
-        .text(`મો. : ${member.mobile || ''}`, 38, 491, {
-          width: 800
-        });
-
-      // === Family members ===
-      const family = member.familyMembers || [];
-      const maxRows = 8;
-      const rowHeight = 50;
-      const startY = 685;
-      const nameColumnWidth = 600;
-      const relationColumnWidth = 200;
-
-      for (let i = 0; i < Math.min(family.length, maxRows); i++) {
-        const yPos = startY + (i * rowHeight);
-        const famMember = family[i];
-        if (!famMember) continue;
-
-        // Name
-        doc.font('regular')
-          .fontSize(35)
-          .fillColor('purple')
-          .text(`${i + 1}) ${famMember.name}`, 38, yPos, {
-            width: nameColumnWidth,
-            ellipsis: true
-          });
-
-        // Relation + Age
-        const relationText = famMember.relation
-          ? `(${famMember.relation}${famMember.age ? `, ${famMember.age}` : ''})`
-          : famMember.age
-            ? `(Age: ${famMember.age})`
-            : '';
-
-        doc.font('regular')
-          .fontSize(35)
-          .fillColor('purple')
-          .text(relationText, 38 + nameColumnWidth + 20, yPos, {
-            width: relationColumnWidth,
-            ellipsis: true
-          });
-      }
-
-      // Issue date
-      const issueDateFormatted = new Date(member.createdAt).toLocaleDateString('en-GB');
-      doc.font('bold')
-        .fontSize(25)
-        .fillColor('blue')
-        .text(`Date of Issue: ${issueDateFormatted}`, 305, 1120);
-
-      doc.end();
-      return new Promise((resolve) => {
+    doc.end();
+    return new Promise((resolve, reject) => {
         doc.on('end', () => resolve(Buffer.concat(buffers)));
-      });
-
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      throw error;
-    }
+        doc.on('error', reject);
+    });
+  } catch (error) {
+    console.error('PDF generation error:', error);
+    throw error;
   }
+}
 
-  module.exports = { generateCard };
+/**
+ * NEW FUNCTION: Creates a printable sheet of address stickers for a zone.
+ */
+async function generateZoneStickers(members) {
+  try {
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const buffers = [];
+    doc.on('data', buffers.push.bind(buffers));
+
+    const fontRegular = path.join(__dirname, '../assets/fonts/NotoSansGujarati-Regular.ttf');
+    const fontBold = path.join(__dirname, '../assets/fonts/NotoSansGujarati-Bold.ttf');
+    if (!fs.existsSync(fontRegular) || !fs.existsSync(fontBold)) {
+      throw new Error("Gujarati fonts not found in assets/fonts/");
+    }
+    doc.registerFont('regular', fontRegular);
+    doc.registerFont('bold', fontBold);
+
+    const pageMargin = 40;
+    const stickerWidth = 170;
+    const stickerHeight = 80;
+    const gapX = 20;
+    const gapY = 20;
+    let currentX = pageMargin;
+    let currentY = pageMargin;
+
+    for (const member of members) {
+      if (currentX + stickerWidth > doc.page.width - pageMargin) {
+        currentX = pageMargin;
+        currentY += stickerHeight + gapY;
+      }
+      if (currentY + stickerHeight > doc.page.height - pageMargin) {
+        doc.addPage();
+        currentX = pageMargin;
+        currentY = pageMargin;
+      }
+
+      const textPadding = 5;
+      const textWidth = stickerWidth - (textPadding * 2);
+      doc.rect(currentX, currentY, stickerWidth, stickerHeight).stroke();
+      doc.font('bold').fontSize(12).text(member.head.name, currentX + textPadding, currentY + textPadding, { width: textWidth });
+      doc.font('regular').fontSize(9).text(member.address, { width: textWidth, ellipsis: true });
+      const zoneText = `Zone: ${member.zone.number} - ${member.zone.name}`;
+      doc.font('regular').fontSize(8).text(zoneText, currentX + textPadding, currentY + stickerHeight - 15, { width: textWidth });
+
+      currentX += stickerWidth + gapX;
+    }
+
+    doc.end();
+    return new Promise((resolve, reject) => {
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
+        doc.on('error', reject);
+    });
+  } catch (error) {
+    console.error('Sticker sheet generation error:', error);
+    throw error;
+  }
+}
+
+// Export both functions so the app can use them.
+module.exports = { generateCard, generateZoneStickers };

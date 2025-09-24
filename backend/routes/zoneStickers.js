@@ -1,4 +1,3 @@
-// backend/routes/zoneStickers.js
 const express = require('express');
 const PDFDocument = require('pdfkit');
 const path = require('path');
@@ -12,20 +11,23 @@ const mmToPt = (mm) => (mm / 25.4) * 72;
 
 /**
  * GET /api/zones/:zoneId/stickers
- * Streams a PDF with 12 stickers per A4 page (3 cols × 4 rows).
+ * Streams a PDF with 12 stickers per A4 page (3 cols × 6 rows).
  */
 router.get('/:zoneId/stickers', async (req, res) => {
   try {
     const zoneId = req.params.zoneId;
 
-    // fetch people in zone (adapt query if your member schema stores zone differently)
-    const people = await Member.find({ zone: zoneId }).sort({ headName: 1 }).lean();
+    // fetch members in zone and populate 'head' for head name
+    const people = await Member.find({ zone: zoneId })
+      .populate('head')
+      .sort({ 'head.name': 1 }) // sort by head name
+      .lean();
 
     // respond with PDF headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=zone-${zoneId}-stickers.pdf`);
 
-    // create PDF document (A4, no margin — we'll manage margins)
+    // create PDF document (A4, no margin — we manage margins)
     const doc = new PDFDocument({ size: 'A4', margin: 0 });
     doc.pipe(res);
 
@@ -39,7 +41,7 @@ router.get('/:zoneId/stickers', async (req, res) => {
     if (hasRegular) doc.registerFont('guj-regular', fontRegPath);
     if (hasBold) doc.registerFont('guj-bold', fontBoldPath);
 
-    // Layout settings (adjust margins/gutters for your sticker paper)
+    // Layout settings
     const pageW = doc.page.width;   // points
     const pageH = doc.page.height;  // points
     const margin = mmToPt(8);       // 8 mm outer margin
@@ -68,58 +70,75 @@ router.get('/:zoneId/stickers', async (req, res) => {
       doc.rect(x, y, labelW, labelH).stroke();
 
       const p = people[i];
-      // prefer your Gujarati headName field (member.headName)
-      const name = (p.headName || `${p.firstName || ''} ${p.lastName || ''}`).trim();
-      const address = p.address || [
-        p.addressLine1, p.addressLine2, p.city, p.state, p.pincode
-      ].filter(Boolean).join(', ');
-      const mobile = p.mobile || p.phone || '';
 
-      // --- Render Name ---
+      // --- Head Name ---
+      let name = (p.head?.name || `${p.firstName || ''} ${p.lastName || ''}`).trim();
+
       if (hasBold) doc.font('guj-bold');
       else doc.font('Helvetica-Bold');
-      doc.fontSize(14);
 
-      // name may wrap — limit width
+      // check if name is only English letters & spaces
+      const isEnglish = /^[A-Za-z\s]+$/.test(name);
+
+      // default font size 14, reduce 5 if English
+      doc.fontSize(isEnglish ? 9 : 14);
       doc.fillColor('black').text(name, x + padding, y + padding, {
         width: labelW - 2 * padding,
         align: 'left'
       });
 
-      // --- Render Address (wrap, multiple lines) ---
-      const afterNameY = doc.y + mmToPt(1); // slight gap after name
+      // --- Address ---
+      const address = p.address || [
+        p.addressLine1, p.addressLine2, p.city, p.state
+      ].filter(Boolean).join(', ');
+
+      const afterNameY = doc.y + mmToPt(1); // slight gap
       if (hasRegular) doc.font('guj-regular');
       else doc.font('Helvetica');
       doc.fontSize(9);
+      doc.fillColor('black');
       doc.text(address, x + padding, afterNameY, {
         width: labelW - 2 * padding,
         align: 'left',
         lineGap: 1
       });
 
-      // --- Render Mobile at bottom of sticker ---
-      // calculate bottom position (mobile sits near bottom padding)
-      const mobileY = y + labelH - padding - 10; // 10pt text height approx
+      // --- Pincode (before mobile) ---
+      const pincode = p.pincode || '';
+      const mobile = p.mobile || p.phone || '';
+      const mobileFontSize = 10;
+      const pincodeFontSize = mobileFontSize - 2;
+
+      const bottomY = y + labelH - padding - 20; // reserve space for 2 lines (pincode + mobile)
+
+      if (pincode) {
+        if (hasRegular) doc.font('guj-regular');
+        else doc.font('Helvetica');
+        doc.fontSize(pincodeFontSize);
+        doc.fillColor('black');
+        doc.text(`પિન : ${pincode}`, x + padding, bottomY, {
+          width: labelW - 2 * padding,
+          align: 'left'
+        });
+      }
+
+      // --- Mobile just below pincode ---
       if (hasBold) doc.font('guj-bold');
       else doc.font('Helvetica-Bold');
-      doc.fontSize(10);
-      // Gujarati label for mobile: "મો. :"
-      doc.text(`મો. : ${mobile}`, x + padding, mobileY, {
+      doc.fontSize(mobileFontSize);
+      doc.fillColor('black');
+      doc.text(`મો. : ${mobile}`, x + padding, bottomY + pincodeFontSize + 2, {
         width: labelW - 2 * padding,
         align: 'left'
       });
     }
 
     doc.end();
-    // response will be sent as the PDF stream ends
   } catch (error) {
     console.error('Zone stickers PDF error:', error);
-    // If headers not sent yet, send a 500
     try {
       res.status(500).send('Failed to generate stickers PDF');
-    } catch (e) {
-      // response might already be closed — nothing to do
-    }
+    } catch (e) {}
   }
 });
 

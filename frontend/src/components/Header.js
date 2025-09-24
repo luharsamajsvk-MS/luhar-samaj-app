@@ -17,7 +17,6 @@ import MenuIcon from '@mui/icons-material/Menu';
 const Header = () => {
   const navigate = useNavigate();
   const isLoggedIn = localStorage.getItem('token');
-  const userRole = localStorage.getItem('userRole'); // 👈 get role
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const handleLogout = () => {
@@ -31,21 +30,18 @@ const Header = () => {
   };
 
   // Menu items (Gujarati labels)
-  const menuItems = [
+  const loggedInMenu = [
     { text: 'હોમ', path: '/' },
-    ...(isLoggedIn
-      ? [
-          { text: 'ડેશબોર્ડ', path: '/dashboard' },
-          { text: 'સભ્યો', path: '/members' },
-          { text: 'ઝોન', path: '/zones' },
-          ...(userRole === 'admin'
-            ? [
-                { text: 'વિનંતીઓ', path: '/requests' },
-              ]
-            : []),
-        ]
-      : []),
+    { text: 'ડેશબોર્ડ', path: '/dashboard' },
+    { text: 'સભ્યો', path: '/members' },
+    { text: 'ઝોન', path: '/zones' },
+    { text: 'વિનંતીઓ', path: '/requests' },
+    { text: 'ઑડિટ લોગ્સ', path: '/audit-logs' },
   ];
+
+  const guestMenu = [{ text: 'હોમ', path: '/' }];
+
+  const menuItems = isLoggedIn ? loggedInMenu : guestMenu;
 
   return (
     <>
@@ -56,7 +52,7 @@ const Header = () => {
             લુહાર સમાજ મેનેજમેન્ટ
           </Typography>
 
-          {/* Desktop Menu (hidden on xs) */}
+          {/* Desktop Menu */}
           <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2 }}>
             {menuItems.map((item) => (
               <Button
@@ -75,7 +71,7 @@ const Header = () => {
             )}
           </Box>
 
-          {/* Mobile Menu Button (hidden on md+) */}
+          {/* Mobile Menu Button */}
           <IconButton
             edge="end"
             color="inherit"

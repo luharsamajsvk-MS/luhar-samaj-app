@@ -3,11 +3,14 @@ import { Card, CardContent, Typography, Button, CardActions, CircularProgress } 
 import { Description, Edit, Delete } from '@mui/icons-material';
 
 const MemberCard = ({ member, onGenerateCard, onEdit, onDelete, isGenerating }) => {
+  // ✅ Add +1 to include Head as a family member
+  const totalFamily = (member.familyMembers?.length || 0) + 1;
+
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardContent sx={{ flexGrow: 1 }}>
         <Typography variant="h5" component="div" gutterBottom>
-          {member.headName}
+          {member.head?.name}
         </Typography>
         <Typography color="text.secondary" gutterBottom>
           <strong>Ration No:</strong> {member.rationNo}
@@ -22,7 +25,7 @@ const MemberCard = ({ member, onGenerateCard, onEdit, onDelete, isGenerating }) 
           <strong>Mobile:</strong> {member.mobile || 'N/A'}
         </Typography>
         <Typography variant="body2">
-          <strong>Family Members:</strong> {member.familyMembers.length}
+          <strong>Family Members:</strong> {totalFamily}
         </Typography>
       </CardContent>
       <CardActions sx={{ justifyContent: 'center' }}>

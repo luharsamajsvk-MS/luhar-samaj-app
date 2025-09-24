@@ -8,7 +8,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
-    console.log("🔑 Sending token:", token); 
+    console.log("🔑 Sending token:", token);
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
@@ -42,10 +42,17 @@ export const getMembers = () => api.get("/members");
 export const getPendingMembers = () => api.get("/members/pending");
 export const approveMember = (id) => api.post(`/members/${id}/approve`);
 export const rejectMember = (id) => api.post(`/members/${id}/reject`);
-export const updateMember = (id, data) => api.put(`/members/${id}`, data);
-export const deleteMember = (id) => api.delete(`/members/${id}`);
+
+// ✅ Always expect MongoDB _id here
+export const updateMember = (member, data) =>
+  api.put(`/members/${member._id}`, data);
+
+export const deleteMember = (member) =>
+  api.delete(`/members/${member._id}`);
+
 export const downloadMemberPdf = (id) =>
   api.get(`/members/${id}/pdf`, { responseType: "blob" });
+
 export const verifyCard = (cardId) => api.get(`/members/verify/${cardId}`);
 
 /* ------------------- ZONES ------------------- */
@@ -62,6 +69,8 @@ export const getRequests = () => api.get("/requests");
 export const approveRequest = (id, uniqueNumber) =>
   api.post(`/requests/${id}/approve`, { uniqueNumber });
 
-export const declineRequest = (id) => api.post(`/requests/${id}/decline`);
+// 🔒 Reject a request (ADMIN)
+export const declineRequest = (id, reviewNotes) =>
+  api.post(`/requests/${id}/reject`, { reviewNotes });
 
 export default api;

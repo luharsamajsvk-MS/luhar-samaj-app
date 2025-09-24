@@ -1,33 +1,55 @@
-// backend/routes/requests.js
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { createAudit } = require('../services/auditService'); // ✅ Import audit service
 
 const Request = require('../models/Request');
 const Member = require('../models/Member');
 
-// 🔓 PUBLIC: submit a new membership request
+/**
+ * 🔓 PUBLIC: Submit a new membership request
+ */
 router.post('/', async (req, res) => {
   try {
-    const body = req.body || {};
-
-    // Try to extract common fields
-    const name = body.headName || body.name || '';
-    const mobile = body.mobile || body.phone || '';
-    const zone = body.zone || null;
-
-    const doc = await Request.create({
-      payload: body,       // full form
-      name,
+    const {
+      headName,
+      headGender,
+      headBirthday,
+      headAge,
+      rationNo,
+      address,
       mobile,
+      additionalMobiles, // ✅ Aligned with new form
+      pincode,
       zone,
-      createdByIp: req.ip,
-      status: 'pending',
+      familyMembers
+    } = req.body;
+
+    // Basic validation
+    if (!headName || !headGender || !headBirthday || !rationNo || !address || !mobile || !zone) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const request = new Request({
+      headName,
+      headGender,
+      headBirthday: new Date(headBirthday),
+      headAge,
+      rationNo,
+      address,
+      mobile,
+      additionalMobiles: additionalMobiles || [], // Ensure it's an array
+      pincode,
+      zone,
+      familyMembers: familyMembers || [],
+      status: 'pending'
     });
+
+    await request.save();
 
     res.status(201).json({
       message: 'Request submitted successfully',
-      id: doc._id,
+      request: { id: request._id }
     });
   } catch (err) {
     console.error('POST /requests error:', err);
@@ -35,95 +57,159 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 🔒 ADMIN: list all pending requests
+/**
+ * 🔒 ADMIN: Get all requests
+ */
 router.get('/', auth, async (req, res) => {
   try {
-    const items = await Request.find({ status: 'pending' })
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+    
+    const requests = await Request.find(filter)
+      .populate('zone', 'number name')
       .sort({ createdAt: -1 })
       .lean();
 
-    res.json(items);
+    res.json(requests);
   } catch (err) {
     console.error('GET /requests error:', err);
     res.status(500).json({ error: 'Failed to fetch requests' });
   }
 });
 
-// 🔒 ADMIN: approve a pending request -> create real Member
+/**
+ * 🔒 ADMIN: Approve a request → create Member
+ */
 router.post('/:id/approve', auth, async (req, res) => {
   try {
-    console.log("📩 Approve request body:", req.body);
     const { id } = req.params;
-    const { uniqueNumber } = req.body || {};
+    const { uniqueNumber, reviewNotes } = req.body;
 
-    if (!uniqueNumber || String(uniqueNumber).trim() === '') {
-      return res.status(400).json({ error: 'uniqueNumber is required' });
+    if (!uniqueNumber) {
+      return res.status(400).json({ error: 'Unique number is required for approval.' });
     }
 
-    // ensure uniqueNumber is not already used
-    const existing = await Member.findOne({ uniqueNumber: String(uniqueNumber).trim() }).lean();
-    if (existing) {
-      return res.status(400).json({ error: 'uniqueNumber already in use' });
+    // Check if uniqueNumber is already in use
+    const existingMember = await Member.findOne({ uniqueNumber }).lean();
+    if (existingMember) {
+      return res.status(400).json({ error: 'This unique number is already assigned.' });
     }
 
-    const requestDoc = await Request.findById(id);
-    if (!requestDoc || requestDoc.status !== 'pending') {
-      return res.status(404).json({ error: 'Request not found or not pending' });
+    const request = await Request.findById(id);
+    if (!request || request.status !== 'pending') {
+      return res.status(404).json({ error: 'Request not found or has already been processed.' });
     }
 
-    const payload = requestDoc.payload || {};
-
-    // ✅ Build Member object mapping required fields
-    const memberData = {
-      headName: payload.headName || payload.name || '',
-      rationNo: payload.rationNo || '',
-      uniqueNumber: String(uniqueNumber).trim(),
-      address: payload.address || '',
-      mobile: payload.mobile || payload.phone || '',
-      zone: payload.zone,  // must be a valid Zone ObjectId
-      familyMembers: payload.familyMembers || [],
-      createdBy: req.user?.id, // from auth middleware
+    // ✅ Create Member directly from request data
+    const newMember = await Member.create({
+      head: {
+        name: request.headName,
+        birthdate: request.headBirthday,
+        age: request.headAge,
+        gender: request.headGender,
+      },
+      rationNo: request.rationNo,
+      uniqueNumber: uniqueNumber,
+      address: request.address,
+      mobile: request.mobile,
+      additionalMobiles: request.additionalMobiles,
+      pincode: request.pincode,
+      zone: request.zone,
+      familyMembers: request.familyMembers,
+      createdBy: req.user?.id,
       issueDate: new Date(),
-    };
-
-    // validate required fields
-    if (!memberData.headName || !memberData.rationNo || !memberData.address || !memberData.zone) {
-      return res.status(400).json({
-        error: 'Missing required fields: headName, rationNo, address, zone',
-      });
-    }
-
-    // ✅ Create new Member
-    const newMember = await Member.create(memberData);
-
-    // ✅ Delete request after approval
-    await Request.deleteOne({ _id: id });
-
-    res.json({
-      message: 'Request approved and member created',
-      member: newMember,
     });
+
+    // ✅ Create audit log for the new member
+    await createAudit({
+      action: 'create',
+      entityType: 'Member',
+      entityId: newMember._id,
+      memberId: newMember._id,
+      requestId: request._id, // Link to the original request
+      after: newMember.toObject(),
+      req,
+    });
+
+    // ✅ Update request status
+    request.status = 'approved';
+    request.assignedNumber = uniqueNumber;
+    request.reviewedBy = req.user?.id;
+    request.reviewNotes = reviewNotes;
+    await request.save();
+
+    res.json({ message: 'Request approved and member created successfully', member: newMember });
   } catch (err) {
     console.error('POST /requests/:id/approve error:', err);
     res.status(500).json({ error: 'Failed to approve request' });
   }
 });
 
-// 🔒 ADMIN: decline a pending request -> do NOT create Member
-router.post('/:id/decline', auth, async (req, res) => {
+/**
+ * 🔒 ADMIN: Reject a request
+ */
+router.post('/:id/reject', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const requestDoc = await Request.findById(id);
+    const { reviewNotes } = req.body;
 
-    if (!requestDoc || requestDoc.status !== 'pending') {
+    const request = await Request.findById(id);
+    if (!request || request.status !== 'pending') {
       return res.status(404).json({ error: 'Request not found or not pending' });
     }
 
-    await Request.deleteOne({ _id: id });
-    res.json({ message: 'Request declined and removed' });
+    const beforeUpdate = request.toObject();
+    
+    // Update request status
+    request.status = 'rejected'; // Changed from 'declined' to 'rejected' for consistency
+    request.reviewedBy = req.user?.id;
+    request.reviewNotes = reviewNotes;
+    await request.save();
+
+    // ✅ Create audit log for rejection
+    await createAudit({
+        action: 'update',
+        entityType: 'Request',
+        entityId: id,
+        requestId: id,
+        before: beforeUpdate,
+        after: request.toObject(),
+        req
+    });
+
+    res.json({ message: 'Request rejected successfully' });
   } catch (err) {
-    console.error('POST /requests/:id/decline error:', err);
-    res.status(500).json({ error: 'Failed to decline request' });
+    console.error('POST /requests/:id/reject error:', err);
+    res.status(500).json({ error: 'Failed to reject request' });
+  }
+});
+
+/**
+ * 🔒 ADMIN: Delete a request
+ */
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const beforeDelete = await Request.findById(req.params.id).lean();
+    if (!beforeDelete) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    await Request.findByIdAndDelete(req.params.id);
+
+    // ✅ Create audit log for deletion
+    await createAudit({
+        action: 'delete',
+        entityType: 'Request',
+        entityId: beforeDelete._id,
+        requestId: beforeDelete._id,
+        before: beforeDelete,
+        req
+    });
+
+    res.json({ message: 'Request deleted successfully' });
+  } catch (err) {
+    console.error('DELETE /requests/:id error:', err);
+    res.status(500).json({ error: 'Failed to delete request' });
   }
 });
 

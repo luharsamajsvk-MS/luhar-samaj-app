@@ -12,7 +12,8 @@ import Members from './pages/Members';
 import Zones from './pages/Zones';
 import Home from './pages/Home';
 import RequestForm from './pages/RequestForm';
-import Requests from './pages/Requests'; // ✅ Keep requests
+import Requests from './pages/Requests';
+import AuditLogsPage from "./pages/AuditLogsPage"; // ✅ new
 
 // Theme config with responsive typography
 const theme = createTheme({
@@ -34,17 +35,17 @@ const theme = createTheme({
   },
 });
 
-// 🔒 PrivateRoute wrapper with role support
-const PrivateRoute = ({ children, requiredRole }) => {
+// 🔒 PrivateRoute wrapper (admin-only by default)
+const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-  const role = localStorage.getItem('userRole'); // e.g., "admin" or "user"
+  const role = localStorage.getItem('userRole');
 
   if (!token) {
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole && role !== requiredRole) {
-    return <Navigate to="/" replace />; // redirect non-admins
+  if (role !== 'admin') {
+    return <Navigate to="/" replace />;
   }
 
   return children;
@@ -55,10 +56,8 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        {/* Header is global */}
         <Header />
 
-        {/* Responsive content wrapper */}
         <Box
           component="main"
           sx={{
@@ -69,16 +68,12 @@ function App() {
         >
           <Container maxWidth="xl">
             <Routes>
-              {/* Landing page with Login + Request button */}
+              {/* Public routes */}
               <Route path="/" element={<Home />} />
-
-              {/* Public request form */}
+              <Route path="/login" element={<Login />} />
               <Route path="/request" element={<RequestForm />} />
 
-              {/* Login route */}
-              <Route path="/login" element={<Login />} />
-
-              {/* Protected routes */}
+              {/* Admin-only routes */}
               <Route
                 path="/dashboard"
                 element={
@@ -103,18 +98,24 @@ function App() {
                   </PrivateRoute>
                 }
               />
-
-              {/* Admin-only requests page */}
               <Route
                 path="/requests"
                 element={
-                  <PrivateRoute requiredRole="admin">
+                  <PrivateRoute>
                     <Requests />
                   </PrivateRoute>
                 }
               />
+              <Route
+                path="/audit-logs"
+                element={
+                  <PrivateRoute>
+                    <AuditLogsPage />
+                  </PrivateRoute>
+                }
+              />
 
-              {/* Redirect everything else to Home */}
+              {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Container>

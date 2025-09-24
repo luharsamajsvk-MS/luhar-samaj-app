@@ -15,13 +15,18 @@ const Login = () => {
     
     try {
       const response = await api.post('/auth/login', { email, password });
+
+      // Debug response
+      console.log("Login Response:", response.data);
       
-      // Save token and role
+      // Save token and role (adjust once we know exact structure)
       localStorage.setItem('token', response.data.token);
-      localStorage.setItem('userRole', response.data.role);
-      
+      // Temporarily try both ways, one will work
+      localStorage.setItem('userRole', response.data.user?.role || response.data.role);
+
       navigate('/dashboard');
     } catch (err) {
+      console.error("Login Error:", err);
       setError('Invalid email or password');
     }
   };

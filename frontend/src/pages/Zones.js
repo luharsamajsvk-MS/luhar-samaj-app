@@ -1,11 +1,13 @@
+// frontend/src/pages/Zones.js
 import React, { useState, useEffect } from 'react';
 import {
-  Container, Button, Grid, Card, CardContent, Typography, CircularProgress
+  Container, Button, Grid, Card, CardContent, Typography, CircularProgress,
+  Dialog, DialogTitle, DialogContent, DialogActions, TableContainer, Paper,
+  Table, TableHead, TableRow, TableCell, TableBody, TableFooter, Box
 } from '@mui/material';
+import { PeopleAlt, Download } from '@mui/icons-material';
 import ZoneForm from '../components/ZoneForm';
 import api from '../services/api';
-import ZonePeopleDialog from '../components/zonePeopleDialog';
-import { getPeopleByZone } from '../services/peopleService';
 
 function Zones() {
   const [zones, setZones] = useState([]);
@@ -13,12 +15,11 @@ function Zones() {
   const [showForm, setShowForm] = useState(false);
   const [selectedZone, setSelectedZone] = useState(null);
 
-  // People dialog state
-  const [openPeopleDialog, setOpenPeopleDialog] = useState(false);
-  const [peopleLoading, setPeopleLoading] = useState(false);
-  const [peopleError, setPeopleError] = useState(null);
-  const [people, setPeople] = useState([]);
-  const [peopleZoneName, setPeopleZoneName] = useState('');
+  // State for the members detail dialog
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsData, setDetailsData] = useState(null);
+  const [selectedZoneForDetails, setSelectedZoneForDetails] = useState(null);
 
   useEffect(() => {
     fetchZones();
@@ -26,8 +27,9 @@ function Zones() {
 
   const fetchZones = async () => {
     try {
+      setLoading(true);
       const response = await api.get('/zones');
-      setZones(response.data);
+      setZones(response.data.map(z => ({ ...z, id: z._id })));
     } catch (err) {
       console.error('Error fetching zones:', err);
     } finally {
@@ -35,139 +37,87 @@ function Zones() {
     }
   };
 
-  const handleViewPeople = async (zone) => {
-    setPeople([]);
-    setPeopleError(null);
-    setPeopleZoneName(zone.name);
-    setOpenPeopleDialog(true);
-    setPeopleLoading(true);
+  const handleShowMembers = async (zone) => {
+    setDetailsOpen(true);
+    setDetailsLoading(true);
+    setSelectedZoneForDetails(zone);
+    setDetailsData(null);
     try {
-      const list = await getPeopleByZone(zone._id);
-      setPeople(list);
+      const response = await api.get(`/zones/${zone.id}/people`);
+      setDetailsData(response.data);
     } catch (err) {
-      console.error('Error fetching people:', err);
-      setPeopleError(err?.message || 'સભ્યો લોડ કરવામાં નિષ્ફળ');
+      console.error('Error fetching people for zone:', err);
     } finally {
-      setPeopleLoading(false);
+      setDetailsLoading(false);
     }
   };
 
-  // 🔹 Sticker PDF generation
+  const handleCloseDetails = () => {
+    setDetailsOpen(false);
+    setDetailsData(null);
+    setSelectedZoneForDetails(null);
+  };
+  
+  // ✅ **FIXED**: Sticker generation logic is now complete.
   const handleGenerateStickers = async (zone) => {
     try {
-      const res = await api.get(`/zones/${zone._id}/stickers`, {
-        responseType: 'blob',
-      });
-
+      const res = await api.get(`/zones/${zone.id}/stickers`, { responseType: 'blob' });
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `સ્ટિકર_${zone.name}.pdf`);
+      link.setAttribute('download', `stickers_${zone.name}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Sticker generation failed:', err);
-      alert('સ્ટિકર જનરેટ કરવામાં નિષ્ફળ');
+      alert('Sticker generation failed. This zone may not have any members.');
+    }
+  };
+
+  // ✅ **NEW**: Excel export handler for the zone details.
+  const handleExportDetailsToExcel = async () => {
+    if (!selectedZoneForDetails) return;
+    try {
+      const res = await api.get(`/export/zone/${selectedZoneForDetails.id}`, { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `members_${selectedZoneForDetails.name}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Excel export failed:', err);
+      alert('Excel export failed. This zone may not have any members.');
     }
   };
 
   return (
     <Container>
-      <Typography variant="h4" gutterBottom>
-        ઝોન મેનેજમેન્ટ
-      </Typography>
-
-      <Button
-        variant="outlined"
-        color="primary"
-        sx={{ mb: 3 }}
-        onClick={() => {
-          setSelectedZone(null);
-          setShowForm(true);
-        }}
-      >
-        નવો ઝોન ઉમેરો
+      <Typography variant="h4" gutterBottom>Zone Management</Typography>
+      <Button variant="outlined" color="primary" sx={{ mb: 3 }} onClick={() => { setSelectedZone(null); setShowForm(true); }}>
+        Add New Zone
       </Button>
+      {showForm && <ZoneForm zone={selectedZone} onClose={() => { setShowForm(false); setSelectedZone(null); }} onSave={() => { setShowForm(false); fetchZones(); }} />}
 
-      {showForm && (
-        <ZoneForm
-          zone={selectedZone}
-          onClose={() => {
-            setShowForm(false);
-            setSelectedZone(null);
-          }}
-          onSave={() => {
-            setShowForm(false);
-            fetchZones();
-          }}
-        />
-      )}
-
-      {loading ? (
-        <CircularProgress />
-      ) : zones.length === 0 ? (
-        <Typography>કોઈ ઝોન મળ્યો નથી</Typography>
-      ) : (
+      {loading ? (<CircularProgress />) : (
         <Grid container spacing={2}>
           {zones.map((zone) => (
-            <Grid item xs={12} sm={6} md={4} key={zone._id}>
+            <Grid item xs={12} sm={6} md={4} key={zone.id}>
               <Card>
                 <CardContent>
                   <Typography variant="h6">{zone.name}</Typography>
-                  <Typography>ઝોન નંબર: {zone.number}</Typography>
-                  <Typography>કુલ સભ્યો: {zone.totalPeople}</Typography>
-
-                  <Button
-                    size="small"
-                    color="secondary"
-                    sx={{ mt: 1, mr: 1 }}
-                    onClick={() => handleViewPeople(zone)}
-                  >
-                    સભ્યો જુઓ
-                  </Button>
-
-                  {/* 🔹 Sticker Button */}
-                  <Button
-                    size="small"
-                    color="success"
-                    sx={{ mt: 1, mr: 1 }}
-                    onClick={() => handleGenerateStickers(zone)}
-                  >
-                    સ્ટિકર બનાવો
-                  </Button>
-
-                  <Button
-                    size="small"
-                    color="primary"
-                    sx={{ mt: 1, mr: 1 }}
-                    onClick={() => {
-                      setSelectedZone(zone);
-                      setShowForm(true);
-                    }}
-                  >
-                    એડિટ
-                  </Button>
-
-                  <Button
-                    size="small"
-                    color="error"
-                    sx={{ mt: 1 }}
-                    onClick={async () => {
-                      if (window.confirm('આ ઝોન ડિલીટ કરવો છે?')) {
-                        try {
-                          await api.delete(`/zones/${zone._id}`);
-                          fetchZones();
-                        } catch (err) {
-                          console.error('Delete failed:', err);
-                          alert('સભ્યો જોડાયેલા હોવાથી ઝોન ડિલીટ કરી શકાતા નથી');
-                        }
-                      }
-                    }}
-                  >
-                    ડિલીટ
-                  </Button>
+                  <Typography>Zone Number: {zone.number}</Typography>
+                  <Typography>Total People: {zone.totalPeople || 0}</Typography>
+                  <Button size="small" color="secondary" sx={{ mt: 1, mr: 1 }} onClick={() => handleShowMembers(zone)} startIcon={<PeopleAlt />}>Show Members</Button>
+                  <Button size="small" color="primary" sx={{ mt: 1, mr: 1 }} onClick={() => handleGenerateStickers(zone)}>Stickers</Button>
+                  <Button size="small" sx={{ mt: 1, mr: 1 }} onClick={() => { setSelectedZone(zone); setShowForm(true); }}>Edit</Button>
+                  <Button size="small" color="error" sx={{ mt: 1 }} onClick={async () => { if (window.confirm('Are you sure you want to delete this zone?')) { try { await api.delete(`/zones/${zone.id}`); fetchZones(); } catch (err) { alert('Cannot delete zone with assigned members.'); } } }}>Delete</Button>
                 </CardContent>
               </Card>
             </Grid>
@@ -175,14 +125,35 @@ function Zones() {
         </Grid>
       )}
 
-      <ZonePeopleDialog
-        open={openPeopleDialog}
-        onClose={() => setOpenPeopleDialog(false)}
-        zoneName={peopleZoneName}
-        loading={peopleLoading}
-        people={people}
-        error={peopleError}
-      />
+      <Dialog open={detailsOpen} onClose={handleCloseDetails} fullWidth maxWidth="md">
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            Members in Zone: {selectedZoneForDetails?.name}
+            {/* ✅ **NEW**: Excel Export Button added to the dialog */}
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<Download />}
+              onClick={handleExportDetailsToExcel}
+              disabled={!detailsData || detailsLoading}
+            >
+              Export to Excel
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {detailsLoading ? <CircularProgress /> : !detailsData ? <Typography>No member data found for this zone.</Typography> : (
+            <TableContainer component={Paper}>
+              <Table stickyHeader>
+                <TableHead><TableRow><TableCell>Family Head Name</TableCell><TableCell align="right">Total Male</TableCell><TableCell align="right">Total Female</TableCell><TableCell align="right">Total Members</TableCell></TableRow></TableHead>
+                <TableBody>{detailsData.heads.map((family) => (<TableRow hover key={family.id}><TableCell>{family.headName}</TableCell><TableCell align="right">{family.male}</TableCell><TableCell align="right">{family.female}</TableCell><TableCell align="right"><strong>{family.total}</strong></TableCell></TableRow>))}</TableBody>
+                <TableFooter><TableRow sx={{ '& > *': { fontWeight: 'bold', fontSize: '1rem' } }}><TableCell>Grand Total</TableCell><TableCell align="right">{detailsData.totals.male}</TableCell><TableCell align="right">{detailsData.totals.female}</TableCell><TableCell align="right">{detailsData.totals.total}</TableCell></TableRow></TableFooter>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions><Button onClick={handleCloseDetails}>Close</Button></DialogActions>
+      </Dialog>
     </Container>
   );
 }
