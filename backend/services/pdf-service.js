@@ -14,6 +14,7 @@ function isGujarati(text = '') {
 
 /**
  * Fit text in a given rectangle by shrinking font size if needed
+ * (Corrected version: removes manual x-centering to let 'align' option work)
  */
 function fitText(doc, text, font, color, initialSize, x1, y1, x2, y2, align = 'left') {
   if (!text) return;
@@ -29,25 +30,25 @@ function fitText(doc, text, font, color, initialSize, x1, y1, x2, y2, align = 'l
   }
   doc.fillColor(color).fontSize(fontSize);
 
+  // Shrink font size if needed
   while (doc.widthOfString(text) > boxWidth && fontSize > 6) {
     fontSize -= 1;
     doc.fontSize(fontSize);
   }
 
-  const textWidth = doc.widthOfString(text);
   const textHeight = fontSize;
+  
+  // Calculate vertical center
   const textY = y1 + (boxHeight - textHeight) / 2;
-  let textX = x1;
-  if (align === 'center') {
-    textX = x1 + (boxWidth - textWidth) / 2;
-  } else if (align === 'right') {
-    textX = x2 - textWidth;
-  }
+  
+  // Always start at the left edge (x1)
+  const textX = x1;
 
+  // pdfkit will now handle the alignment correctly
   doc.text(text, textX, textY, {
     width: boxWidth,
     height: boxHeight,
-    align: align
+    align: align 
   });
 }
 
@@ -83,8 +84,40 @@ async function generateCard(memberId) {
     const registrationYear = member.createdAt ? new Date(member.createdAt).getFullYear() : '';
     doc.font('bold').fontSize(35).fillColor('white').text(registrationYear, 780, 25);
 
-    const zoneText = `${member.zone?.number || ''} / ${member.uniqueNumber || member.cardId || '---'}`;
-    fitText(doc, zoneText, 'bold', 'blue', 36, 590, 491, 885, 535, 'center');
+    // --- MODIFICATION START ---
+    // Manually render Zone (Blue) / Unique Number (Red) to be centered
+    
+    // 1. Define the parts and box
+    const zonePart = `${member.zone?.number || ''} / `;
+    const uniquePart = `${member.uniqueNumber || member.cardId || '---'}`;
+    const x1 = 590, y1 = 491, x2 = 885, y2 = 535; // The box to center within
+    const boxWidth = x2 - x1;
+    const boxHeight = y2 - y1;
+    let fontSize = 36; // Initial font size
+    doc.font('bold');
+
+    // 2. Shrink font size if necessary to fit box
+    let totalWidth = doc.fontSize(fontSize).widthOfString(zonePart) + doc.widthOfString(uniquePart);
+    while (totalWidth > boxWidth && fontSize > 6) {
+      fontSize -= 1;
+      totalWidth = doc.fontSize(fontSize).widthOfString(zonePart) + doc.widthOfString(uniquePart);
+    }
+
+    // 3. Calculate final positions
+    const startX = x1 + (boxWidth - totalWidth) / 2; // Horizontal center
+    const finalY = y1 + (boxHeight - fontSize) / 2; // Vertical center
+    const zonePartWidth = doc.fontSize(fontSize).widthOfString(zonePart);
+
+    // 4. Render the two parts with different colors
+    doc.fillColor('blue').text(zonePart, startX, finalY, {
+      lineBreak: false,
+      continued: true // Use continued: true for the first part
+    });
+    
+    doc.fillColor('red').text(uniquePart, startX + zonePartWidth, finalY, {
+      lineBreak: false
+    });
+    // --- MODIFICATION END ---
 
     let headFontSize = 55;
     if (!isGujarati(member.head?.name)) headFontSize -= 10;
@@ -94,7 +127,7 @@ async function generateCard(memberId) {
     if (!isGujarati(member.address)) addressFontSize -= 6;
     doc.font('regular').fontSize(addressFontSize).fillColor('blue').text(member.address || '', 38, 335, { width: 700, height: 120, ellipsis: true, align: 'left' });
 
-  const city = member.city || '';
+    const city = member.city || '';
     const pincode = member.pincode || '';
     const cityPincode = [city, pincode].filter(Boolean).join(' - '); // Joins with ' - ' only if both exist
 
@@ -170,8 +203,15 @@ async function generateZoneStickers(members) {
       const textWidth = stickerWidth - (textPadding * 2);
       doc.rect(currentX, currentY, stickerWidth, stickerHeight).stroke();
       doc.font('bold').fontSize(12).text(member.head.name, currentX + textPadding, currentY + textPadding, { width: textWidth });
-      doc.font('regular').fontSize(9).text(member.address, { width: textWidth, ellipsis: true });
+      
+      // Combine address, city, pincode for sticker
+      const cityPincode = [member.city, member.pincode].filter(Boolean).join(' - ');
+      const fullAddress = [member.address, cityPincode].filter(Boolean).join(', ');
+      
+      doc.font('regular').fontSize(9).text(fullAddress, doc.x, doc.y, { width: textWidth, ellipsis: true });
+      
       const zoneText = `Zone: ${member.zone.number} - ${member.zone.name}`;
+      // Position zone text at the bottom of the sticker
       doc.font('regular').fontSize(8).text(zoneText, currentX + textPadding, currentY + stickerHeight - 15, { width: textWidth });
 
       currentX += stickerWidth + gapX;
