@@ -7,7 +7,9 @@ import {
   People as PeopleIcon, 
   FamilyRestroom as FamilyIcon, 
   Map as MapIcon,
-  TrendingUp as TrendingUpIcon
+  TrendingUp as TrendingUpIcon,
+  Male as MaleIcon,      // <-- ADD THIS
+  Female as FemaleIcon
 } from '@mui/icons-material';
 import { getDashboardData } from '../services/dashboardService';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -141,32 +143,60 @@ const Dashboard = () => {
       </Box>
 
       {/* Stats Cards */}
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} sm={6} md={4}>
-          <StatCard 
-            title="કુલ કુટુંબો" 
-            value={stats.totalMembers} 
-            icon={<FamilyIcon />} 
-            color="primary" 
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <StatCard 
-            title="કુલ લોકો" 
-            value={stats.totalPeople} 
-            icon={<PeopleIcon />} 
-            color="secondary" 
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <StatCard 
-            title="ઝોન" 
-            value={stats.totalZones} 
-            icon={<MapIcon />} 
-            color="success" 
-          />
-        </Grid>
-      </Grid>
+      {/* Stats Cards */}
+      <Box 
+        display="flex" 
+        mb={4} 
+        gap={3} // This is your spacing
+        sx={{
+          flexDirection: { xs: 'column', sm: 'row' }, // Column on XS, row on SM and up
+          flexWrap: { sm: 'wrap', md: 'nowrap' }     // Allow wrap on SM, but force single line on MD
+        }}
+      >
+        {/*           On MD screens, flexBasis 'auto' + flexGrow 1 = all 5 items share the space equally.
+          On SM screens, flexBasis '40%' allows 2 items per row.
+        */}
+        <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', sm: '40%', md: 'auto' } }}>
+          <StatCard 
+            title="કુલ કુટુંબો" 
+            value={stats.totalMembers} 
+            icon={<FamilyIcon />} 
+            color="primary" 
+          />
+        </Box>
+     <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', sm: '40%', md: 'auto' } }}>
+          <StatCard 
+            title="કુલ લોકો" 
+            value={stats.totalPeople} 
+            icon={<PeopleIcon />} 
+            color="secondary" 
+          />
+        </Box>
+        <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', sm: '40%', md: 'auto' } }}>
+          <StatCard 
+            title="કુલ પુરુષ" 
+            value={stats.totalMales} 
+            icon={<MaleIcon />} 
+            color="info" 
+          />
+        </Box>
+        <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', sm: '40%', md: 'auto' } }}>
+          <StatCard 
+            title="કુલ સ્ત્રી" 
+            value={stats.totalFemales} 
+            icon={<FemaleIcon />} 
+            color="warning" 
+          />
+        </Box>
+        <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', sm: '40%', md: 'auto' } }}>
+          <StatCard 
+            title="ઝોન" 
+            value={stats.totalZones} 
+            icon={<MapIcon />} 
+            color="success" 
+          />
+        </Box>
+      </Box>
 
       {/* Charts Section */}
       <Grid container spacing={3} mb={4}>

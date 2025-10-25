@@ -1,5 +1,6 @@
 // frontend/src/pages/Members.js
 import React, { useState, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { 
   Container, 
   Grid, 
@@ -116,10 +117,76 @@ export default function Members() {
   };
   
   // ✅ NEW: Handle Excel Export (placeholder)
-  const handleExportExcel = () => {
-      showSnackbar('આ સુવિધા ટૂંક સમયમાં આવી રહી છે!', 'info');
-      // Later, this will call: await exportMembersToExcel();
-  };
+// REPLACE your function with this final version
+const handleExportExcel = () => {
+  try {
+    // --- SHEET 1: Summary Statistics ---
+    const statsData = [
+      { "આંકડા": "કુલ પરિવારો", "કુલ": stats.totalFamilies },
+      { "આંકડા": "કુલ સભ્યો", "કુલ": stats.totalPeople },
+      { "આંકડા": "પુરુષ", "કુલ": stats.maleCount },
+      { "આંકડા": "સ્ત્રી", "કુલ": stats.femaleCount },
+    ];
+    const ws_stats = XLSX.utils.json_to_sheet(statsData);
+
+    // --- SHEET 2: Full Member List ---
+    const memberData = [];
+
+    members.forEach(family => {
+      // Add the Head of Family
+      memberData.push({
+        "યુનિક નંબર": family.uniqueNumber,
+        "રેશન કાર્ડ નંબર": family.rationNo,
+        "નામ": family.head?.name,
+        "જાતિ": family.head?.gender,
+        "ઉંમર": family.head?.age,
+        "સંબંધ": "પોતે (કુટુંબના વડા)",
+        "મોબાઈલ": family.mobile,
+        "સરનામું": family.address,
+        "ઝોન": family.zone?.name
+      });
+
+      // Add all Family Members
+      family.familyMembers?.forEach(member => {
+        memberData.push({
+          "યુનિક નંબર": family.uniqueNumber,
+          "રેશન કાર્ડ નંબર": family.rationNo,
+          "નામ": member.name,
+          "જાતિ": member.gender,
+          "ઉંમર": member.age,
+          "સંબંધ": member.relation,
+          "મોબાઈલ": "",
+          "સરનામું": family.address,
+          "ઝોન": family.zone?.name
+        });
+      });
+
+      // ✅ --- ADDED THIS LINE FOR SPACING ---
+      // Add a blank row after each family
+      memberData.push({}); 
+
+    }); // End of members.forEach loop
+
+    if (memberData.length === 0) {
+      showSnackbar('નિકાસ કરવા માટે કોઈ ડેટા નથી', 'warning');
+      return;
+    }
+
+    const ws_members = XLSX.utils.json_to_sheet(memberData);
+
+    // --- Create Workbook and Trigger Download ---
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws_members, "All Members"); // Sheet 1
+    XLSX.utils.book_append_sheet(wb, ws_stats, "Summary");      // Sheet 2
+
+    // Trigger the file download
+    XLSX.writeFile(wb, "members_report.xlsx");
+
+  } catch (err) {
+    console.error("Excel export failed:", err);
+    showSnackbar('Excel નિકાસ કરવામાં નિષ્ફળ', 'error');
+  }
+};
 
   const handleAddMember = () => {
     setCurrentMember(null);

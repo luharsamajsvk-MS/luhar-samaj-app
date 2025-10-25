@@ -26,6 +26,8 @@ const memberSchema = new mongoose.Schema(
 
     address: { type: String, required: true },
 
+    city: { type: String, trim: true },
+
     // 🔹 Primary + Additional numbers
     mobile: {
       type: String,

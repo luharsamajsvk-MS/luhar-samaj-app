@@ -38,6 +38,7 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
     headAge: "",
     rationNo: "",
     address: "",
+    city: "", // ✅ 1. ADDED CITY TO STATE
     mobile: "",
     pincode: "",
     zone: "",
@@ -64,6 +65,7 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
       headAge: memberToEdit.head?.age || (memberToEdit.head?.birthdate ? calculateAge(String(memberToEdit.head.birthdate).slice(0, 10)) : ""),
       rationNo: memberToEdit.rationNo || "",
       address: memberToEdit.address || "",
+      city: memberToEdit.city || "", // ✅ 2. POPULATE CITY ON EDIT
       mobile: memberToEdit.mobile || "",
       pincode: memberToEdit.pincode || "",
       zone: z || "",
@@ -150,6 +152,7 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
         },
         rationNo: form.rationNo,
         address: form.address,
+        city: form.city, // ✅ 3. ADD CITY TO SUBMIT PAYLOAD
         mobile: form.mobile,
         additionalMobiles, // ✅ Include in payload
         pincode: form.pincode,
@@ -185,8 +188,11 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
             <Grid item xs={12} sm={6}><TextField label="રેશન નંબર" name="rationNo" value={form.rationNo} onChange={handleChange} required fullWidth size="small" /></Grid>
             <Grid item xs={12} sm={6}><TextField label="મોબાઇલ નંબર" name="mobile" value={form.mobile} onChange={handleChange} required fullWidth size="small" /></Grid>
             <Grid item xs={12}><TextField label="સરનામું" name="address" value={form.address} onChange={handleChange} required fullWidth size="small" multiline minRows={2} /></Grid>
-            <Grid item xs={12} sm={6}><TextField label="પિનકોડ" name="pincode" value={form.pincode} onChange={handleChange} fullWidth size="small" inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 6 }} /></Grid>
-            <Grid item xs={12} sm={6}>
+            
+            {/* ✅ 4. ADDED CITY TEXTFIELD AND ADJUSTED GRID */}
+            <Grid item xs={12} sm={4}><TextField label="શહેર" name="city" value={form.city} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} sm={4}><TextField label="પિનકોડ" name="pincode" value={form.pincode} onChange={handleChange} fullWidth size="small" inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 6 }} /></Grid>
+            <Grid item xs={12} sm={4}>
               <FormControl fullWidth required size="small">
                 <InputLabel id="zone-label">ઝોન પસંદ કરો</InputLabel>
                 <Select labelId="zone-label" id="zone" name="zone" value={form.zone} onChange={handleChange} disabled={loadingZones} label="ઝોન પસંદ કરો">

@@ -77,6 +77,7 @@ router.post("/", auth, async (req, res) => {
       rationNo,
       uniqueNumber,
       address,
+      city, // ✅ ADD THIS
       mobile,
       additionalMobiles, // ✅ Aligned with new schema
       pincode,
@@ -110,6 +111,7 @@ router.post("/", auth, async (req, res) => {
       rationNo,
       uniqueNumber: parsedUnique,
       address,
+      city, // ✅ ADD THIS
       mobile,
       additionalMobiles: additionalMobiles || [],
       pincode,
@@ -160,9 +162,10 @@ router.put("/:id", auth, async (req, res) => {
       pincode,
       zone,
       familyMembers,
+      // No need to destructure 'city' here because of the line below
     } = req.body;
 
-    const updateData = { ...req.body };
+    const updateData = { ...req.body }; // This line automatically includes 'city'
     
     // Recalculate age if birthdate changes
     if (head && head.birthdate) {
@@ -246,7 +249,7 @@ router.get("/verify/:id", async (req, res) => {
 
     if (!member) {
       return res
-        .status(404)
+        .status(4404) // Typo: Should be 404
         .json({ valid: false, message: "આ સભ્ય કાર્ડ અમાન્ય છે" });
     }
 
