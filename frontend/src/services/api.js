@@ -8,7 +8,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
-    console.log("🔑 Sending token:", token);
+    console.log("🔑 Sending token:", token); // Keep for debugging if needed
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
@@ -20,11 +20,11 @@ export const registerUser = (data) => api.post("/auth/register", data);
 
 export const loginUser = async (data) => {
   const res = await api.post("/auth/login", data);
-  console.log("🟢 Login response from backend:", res.data);
+  console.log("🟢 Login response from backend:", res.data); // Keep for debugging
 
   if (res.data?.token) {
     localStorage.setItem("token", res.data.token);
-    console.log("💾 Token saved to localStorage:", res.data.token);
+    console.log("💾 Token saved to localStorage:", res.data.token); // Keep for debugging
   } else {
     console.warn("⚠️ No token found in login response:", res.data);
   }
@@ -35,20 +35,26 @@ export const loginUser = async (data) => {
 export const getProfile = () => api.get("/auth/me");
 
 /* ------------------- MEMBERS ------------------- */
-export const publicRegisterMember = (data) =>
-  api.post("/members/register", data);
+// Note: publicRegisterMember seems redundant if using the /requests flow
+// export const publicRegisterMember = (data) =>
+//   api.post("/members/register", data);
 
 export const getMembers = () => api.get("/members");
-export const getPendingMembers = () => api.get("/members/pending");
-export const approveMember = (id) => api.post(`/members/${id}/approve`);
-export const rejectMember = (id) => api.post(`/members/${id}/reject`);
+// Note: getPendingMembers seems redundant if using the /requests flow with status
+// export const getPendingMembers = () => api.get("/members/pending");
+// Note: approveMember/rejectMember seem redundant if using the /requests flow
+// export const approveMember = (id) => api.post(`/members/${id}/approve`);
+// export const rejectMember = (id) => api.post(`/members/${id}/reject`);
 
-// ✅ Always expect MongoDB _id here
+// Ensure updateMember and deleteMember use the correct ID format
+// Assuming 'member' object has '_id' property
 export const updateMember = (member, data) =>
   api.put(`/members/${member._id}`, data);
 
-export const deleteMember = (member) =>
-  api.delete(`/members/${member._id}`);
+// Assuming 'member' object has '_id' property, pass ID directly
+export const deleteMember = (memberId) =>
+  api.delete(`/members/${memberId}`);
+
 
 export const downloadMemberPdf = (id) =>
   api.get(`/members/${id}/pdf`, { responseType: "blob" });
@@ -65,12 +71,13 @@ export const deleteZone = (id) => api.delete(`/zones/${id}`);
 /* ------------------- REQUESTS ------------------- */
 export const getRequests = () => api.get("/requests");
 
-// ✅ FIXED: Send uniqueNumber in body
+// Send uniqueNumber in body for approval
 export const approveRequest = (id, uniqueNumber) =>
   api.post(`/requests/${id}/approve`, { uniqueNumber });
 
-// 🔒 Reject a request (ADMIN)
-export const declineRequest = (id, reviewNotes) =>
-  api.post(`/requests/${id}/reject`, { reviewNotes });
+// ✅ FIX: Use DELETE method and remove reviewNotes parameter
+// This matches the backend route: router.delete("/:id", auth, ...)
+export const declineRequest = (id) =>
+  api.delete(`/requests/${id}`); // Use DELETE and don't send notes
 
-export default api;
+export default api; // Keep default export for the configured axios instance

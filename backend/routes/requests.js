@@ -1,215 +1,228 @@
-const express = require('express');
+// backend/routes/requests.js
+const express = require("express");
 const router = express.Router();
-const auth = require('../middleware/auth');
-const { createAudit } = require('../services/auditService'); // ✅ Import audit service
+const auth = require("../middleware/auth");
+const Request = require("../models/Request");
+const Member = require("../models/Member");
+const Zone = require("../models/Zone");
+const { createAudit } = require("../services/auditService");
 
-const Request = require('../models/Request');
-const Member = require('../models/Member');
+// --- Helper Functions (from members.js, for data cleaning) ---
+function toDateOrNull(v) {
+  if (!v) return null;
+  try {
+    const d = v instanceof Date ? v : new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
 
-/**
- * 🔓 PUBLIC: Submit a new membership request
+function calcAgeFromDOB(dob) {
+  if (!(dob instanceof Date) || isNaN(dob.getTime())) return undefined;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+  return age;
+}
+
+function normalizeFamilyMembers(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((f) => f && (f.name || f.relation || f.birthdate || f.gender || f.age))
+    .map((f) => {
+      const birthdate = toDateOrNull(f.birthdate);
+      const age =
+        typeof f.age === "number"
+          ? f.age
+          : typeof f.age === "string" && f.age.trim() !== "" && !isNaN(Number(f.age))
+          ? Number(f.age)
+          : calcAgeFromDOB(birthdate);
+      const gender =
+        f.gender && ["male", "female", "other"].includes(String(f.gender).toLowerCase())
+          ? String(f.gender).toLowerCase()
+          : undefined;
+      return {
+        name: f.name || "",
+        relation: f.relation || "",
+        birthdate: birthdate || undefined,
+        gender,
+        age,
+      };
+    });
+}
+
+/*
+ * @route   POST api/requests
+ * @desc    Submit a new member registration request (Public)
+ * @access  Public
  */
-router.post('/', async (req, res) => {
+router.post("/", async (req, res) => {
   try {
     const {
-      headName,
-      headGender,
-      headBirthday,
-      headAge,
+      head,
       rationNo,
       address,
+      city, // ✅ ADDED
       mobile,
-      additionalMobiles, // ✅ Aligned with new form
+      additionalMobiles, // ✅ ADDED
       pincode,
       zone,
-      familyMembers
+      familyMembers,
     } = req.body;
 
-    // Basic validation
-    if (!headName || !headGender || !headBirthday || !rationNo || !address || !mobile || !zone) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    // Validate Zone
+    const zoneDoc = await Zone.findById(zone);
+    if (!zoneDoc) {
+      return res.status(400).json({ error: "Invalid zone ID selected." });
+    }
+    
+    // Validate Head
+    if (!head || !head.name || !head.birthdate || !head.gender) {
+         return res.status(400).json({ error: "Head member details are incomplete." });
+    }
+    
+    const headBirthdate = toDateOrNull(head.birthdate);
+    if (!headBirthdate) {
+        return res.status(400).json({ error: "Invalid head birthdate." });
     }
 
-    const request = new Request({
-      headName,
-      headGender,
-      headBirthday: new Date(headBirthday),
-      headAge,
+    const newRequest = new Request({
+      head: {
+        name: head.name,
+        birthdate: headBirthdate,
+        gender: head.gender,
+        age: calcAgeFromDOB(headBirthdate),
+      },
       rationNo,
       address,
+      city, // ✅ ADDED
       mobile,
-      additionalMobiles: additionalMobiles || [], // Ensure it's an array
+      additionalMobiles: additionalMobiles || [], // ✅ ADDED
       pincode,
       zone,
-      familyMembers: familyMembers || [],
-      status: 'pending'
+      familyMembers: normalizeFamilyMembers(familyMembers), // Clean data
+      status: "pending",
     });
 
-    await request.save();
-
-    res.status(201).json({
-      message: 'Request submitted successfully',
-      request: { id: request._id }
-    });
+    await newRequest.save();
+    res.status(201).json({ message: "Request submitted successfully." });
   } catch (err) {
-    console.error('POST /requests error:', err);
-    res.status(500).json({ error: 'Failed to submit request' });
+    console.error("POST /requests error:", err);
+    res.status(400).json({ error: err.message || "Failed to submit request." });
   }
 });
 
-/**
- * 🔒 ADMIN: Get all requests
+/*
+ * @route   GET api/requests
+ * @desc    Get all requests (Admin)
+ * @access  Private (Auth)
  */
-router.get('/', auth, async (req, res) => {
+router.get("/", auth, async (req, res) => {
   try {
-    const { status } = req.query;
-    const filter = status ? { status } : {};
-    
-    const requests = await Request.find(filter)
-      .populate('zone', 'number name')
-      .sort({ createdAt: -1 })
-      .lean();
-
+    const requests = await Request.find()
+      .populate("zone", "name number")
+      .sort({ createdAt: -1 });
     res.json(requests);
   } catch (err) {
-    console.error('GET /requests error:', err);
-    res.status(500).json({ error: 'Failed to fetch requests' });
+    console.error("GET /requests error:", err);
+    res.status(500).json({ error: "Failed to fetch requests." });
   }
 });
 
-/**
- * 🔒 ADMIN: Approve a request → create Member
+/*
+ * @route   POST api/requests/:id/approve
+ * @desc    Approve a request and create a member (Admin)
+ * @access  Private (Auth)
  */
-router.post('/:id/approve', auth, async (req, res) => {
+router.post("/:id/approve", auth, async (req, res) => {
+  const { uniqueNumber } = req.body;
+  if (!uniqueNumber) {
+    return res.status(400).json({ error: "Unique Number (સભ્ય નંબર) is required." });
+  }
+
   try {
-    const { id } = req.params;
-    const { uniqueNumber, reviewNotes } = req.body;
-
-    if (!uniqueNumber) {
-      return res.status(400).json({ error: 'Unique number is required for approval.' });
+    const request = await Request.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ error: "Request not found." });
+    }
+    if (request.status === "approved") {
+      return res.status(400).json({ error: "Request already approved." });
     }
 
-    // Check if uniqueNumber is already in use
-    const existingMember = await Member.findOne({ uniqueNumber }).lean();
+    // Check if unique number is already taken
+    const existingMember = await Member.findOne({ uniqueNumber });
     if (existingMember) {
-      return res.status(400).json({ error: 'This unique number is already assigned.' });
+      return res.status(400).json({ error: `Unique Number ${uniqueNumber} is already assigned.` });
     }
 
-    const request = await Request.findById(id);
-    if (!request || request.status !== 'pending') {
-      return res.status(404).json({ error: 'Request not found or has already been processed.' });
-    }
-
-    // ✅ Create Member directly from request data
-    const newMember = await Member.create({
-      head: {
-        name: request.headName,
-        birthdate: request.headBirthday,
-        age: request.headAge,
-        gender: request.headGender,
-      },
+    // ✅ Create a new Member by copying the data directly
+    // This is much cleaner now!
+    const newMember = new Member({
+      head: request.head,
       rationNo: request.rationNo,
       uniqueNumber: uniqueNumber,
       address: request.address,
+      city: request.city, // ✅ ADDED
       mobile: request.mobile,
-      additionalMobiles: request.additionalMobiles,
+      additionalMobiles: request.additionalMobiles, // ✅ ADDED
       pincode: request.pincode,
       zone: request.zone,
       familyMembers: request.familyMembers,
       createdBy: req.user?.id,
-      issueDate: new Date(),
+      issueDate: new Date(), // Set issue date to now (can be edited later)
     });
 
-    // ✅ Create audit log for the new member
+    await newMember.save();
+
+    // Update request status
+    request.status = "approved";
+    await request.save();
+
+    // Create Audit Log
     await createAudit({
-      action: 'create',
-      entityType: 'Member',
+      action: "approve_request",
+      entityType: "Member",
       entityId: newMember._id,
-      memberId: newMember._id,
-      requestId: request._id, // Link to the original request
+      memberId: newMember._id, // Link to the new member
       after: newMember.toObject(),
+      notes: `Approved from request ${request._id}`,
       req,
     });
 
-    // ✅ Update request status
-    request.status = 'approved';
-    request.assignedNumber = uniqueNumber;
-    request.reviewedBy = req.user?.id;
-    request.reviewNotes = reviewNotes;
-    await request.save();
-
-    res.json({ message: 'Request approved and member created successfully', member: newMember });
+    res.status(201).json({ message: "Member created successfully.", member: newMember });
   } catch (err) {
-    console.error('POST /requests/:id/approve error:', err);
-    res.status(500).json({ error: 'Failed to approve request' });
+    console.error("POST /requests/:id/approve error:", err);
+    res.status(500).json({ error: err.message || "Failed to approve request." });
   }
 });
 
-/**
- * 🔒 ADMIN: Reject a request
+/*
+ * @route   DELETE api/requests/:id
+ * @desc    Decline (delete) a request (Admin)
+ * @access  Private (Auth)
  */
-router.post('/:id/reject', auth, async (req, res) => {
+router.delete("/:id", auth, async (req, res) => {
   try {
-    const { id } = req.params;
-    const { reviewNotes } = req.body;
-
-    const request = await Request.findById(id);
-    if (!request || request.status !== 'pending') {
-      return res.status(404).json({ error: 'Request not found or not pending' });
+    const request = await Request.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ error: "Request not found." });
     }
 
-    const beforeUpdate = request.toObject();
+    // Instead of deleting, we set status to 'rejected'
+    // If you truly want to delete, use:
+    // await Request.findByIdAndDelete(req.params.id);
     
-    // Update request status
-    request.status = 'rejected'; // Changed from 'declined' to 'rejected' for consistency
-    request.reviewedBy = req.user?.id;
-    request.reviewNotes = reviewNotes;
+    request.status = "rejected";
+    // you could add notes: request.reviewNotes = req.body.notes || "Rejected by admin";
     await request.save();
 
-    // ✅ Create audit log for rejection
-    await createAudit({
-        action: 'update',
-        entityType: 'Request',
-        entityId: id,
-        requestId: id,
-        before: beforeUpdate,
-        after: request.toObject(),
-        req
-    });
 
-    res.json({ message: 'Request rejected successfully' });
+    res.json({ message: "Request rejected successfully." });
   } catch (err) {
-    console.error('POST /requests/:id/reject error:', err);
-    res.status(500).json({ error: 'Failed to reject request' });
-  }
-});
-
-/**
- * 🔒 ADMIN: Delete a request
- */
-router.delete('/:id', auth, async (req, res) => {
-  try {
-    const beforeDelete = await Request.findById(req.params.id).lean();
-    if (!beforeDelete) {
-      return res.status(404).json({ error: 'Request not found' });
-    }
-
-    await Request.findByIdAndDelete(req.params.id);
-
-    // ✅ Create audit log for deletion
-    await createAudit({
-        action: 'delete',
-        entityType: 'Request',
-        entityId: beforeDelete._id,
-        requestId: beforeDelete._id,
-        before: beforeDelete,
-        req
-    });
-
-    res.json({ message: 'Request deleted successfully' });
-  } catch (err) {
-    console.error('DELETE /requests/:id error:', err);
-    res.status(500).json({ error: 'Failed to delete request' });
+    console.error("DELETE /requests/:id error:", err);
+    res.status(500).json({ error: "Failed to reject request." });
   }
 });
 

@@ -1,49 +1,50 @@
+// backend/models/Request.js
 const mongoose = require("mongoose");
 
-// ✅ Family Member Schema
+// This schema is now identical to the familyMemberSchema in Member.js
 const familyMemberSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  relation: { type: String, required: true },
+  name: { type: String, required: true, trim: true },
+  relation: { type: String, required: true, trim: true },
   birthdate: { type: Date },
-  age: { type: Number },
   gender: { type: String, enum: ["male", "female", "other"] },
+  age: { type: Number },
 });
 
-// ✅ Main Request Schema
+// This schema is now aligned with the Member.js schema
 const requestSchema = new mongoose.Schema(
   {
-    // Head of Household
-    headName: { type: String, required: true },
-    headGender: {
-      type: String,
-      enum: ["male", "female", "other"],
-      required: true,
+    // ✅ Align with Member.js
+    head: {
+      name: { type: String, required: true, trim: true },
+      birthdate: { type: Date, required: true },
+      gender: { type: String, enum: ["male", "female", "other"], required: true },
+      age: { type: Number, required: true },
     },
-    headBirthday: { type: Date, required: true },
-    headAge: { type: Number, required: true },
 
-    // Household details
-    rationNo: { type: String, required: true },
+    rationNo: { type: String, trim: true, required: true },
     address: { type: String, required: true },
+    
+    // ✅ ADDED: city
+    city: { type: String, trim: true },
 
-    // Primary Mobile (always required, 10 digits only)
     mobile: {
       type: String,
+      trim: true,
       required: true,
       validate: {
         validator: (v) => /^\d{10}$/.test(v),
         message: (props) => `${props.value} is not a valid 10-digit mobile number!`,
       },
     },
-
-    // ✅ Multiple Extra Mobiles (optional, must be 10 digits if present)
+    
+    // ✅ ADDED: additionalMobiles
     additionalMobiles: [
       {
         type: String,
+        trim: true,
         validate: {
           validator: (v) => /^\d{10}$/.test(v),
-          message: (props) =>
-            `${props.value} is not a valid 10-digit additional mobile number!`,
+          message: (props) => `${props.value} is not a valid 10-digit additional mobile number!`,
         },
       },
     ],
@@ -56,28 +57,18 @@ const requestSchema = new mongoose.Schema(
       },
     },
 
-    // Zone reference
     zone: { type: mongoose.Schema.Types.ObjectId, ref: "Zone", required: true },
-
-    // Family Members
+    
+    // ✅ Use the consistent familyMemberSchema
     familyMembers: [familyMemberSchema],
 
-    // Workflow
+    // Request-specific fields
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
-
-    // Number assigned only after approval
-    assignedNumber: { type: String, default: null },
-
-    // Review Info
-    reviewedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // admin who approved/rejected
-    },
-    reviewNotes: { type: String },
+    reviewNotes: String, // For admins to add notes on rejection
   },
   { timestamps: true }
 );

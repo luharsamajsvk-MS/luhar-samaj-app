@@ -4,11 +4,10 @@ const auth = require("../middleware/auth");
 const Member = require("../models/Member");
 const Zone = require("../models/Zone");
 const mongoose = require("mongoose");
-const { createAudit } = require("../services/auditService"); // ✅ Import audit service
+const { createAudit } = require("../services/auditService"); 
 const { generateCard } = require("../services/pdf-service");
 
 // ----------------- Helper Functions -----------------
-// (These helpers are kept as they are still useful for data cleaning)
 function toDateOrNull(v) {
   if (!v) return null;
   try {
@@ -73,16 +72,17 @@ router.get("/", auth, async (req, res) => {
 router.post("/", auth, async (req, res) => {
   try {
     const {
-      head, // object with name, birthdate, gender
+      head, 
       rationNo,
       uniqueNumber,
       address,
-      city, // ✅ ADD THIS
+      city,
       mobile,
-      additionalMobiles, // ✅ Aligned with new schema
+      additionalMobiles, 
       pincode,
       zone,
       familyMembers,
+      issueDate // ✅ ADDED
     } = req.body;
 
     // Validate zone
@@ -106,24 +106,24 @@ router.post("/", auth, async (req, res) => {
         name: head.name,
         birthdate: headBirthdate,
         gender: head.gender,
-        age: calcAgeFromDOB(headBirthdate), // ✅ Auto-calculate age
+        age: calcAgeFromDOB(headBirthdate),
       },
       rationNo,
       uniqueNumber: parsedUnique,
       address,
-      city, // ✅ ADD THIS
+      city, 
       mobile,
       additionalMobiles: additionalMobiles || [],
       pincode,
       zone,
       familyMembers: normalizeFamilyMembers(familyMembers),
       createdBy: req.user?.id,
-      issueDate: new Date(),
+      // ✅ USE provided issueDate or default to new Date()
+      issueDate: toDateOrNull(issueDate) || new Date(), 
     });
 
     await member.save();
 
-    // ✅ Create audit log for creation
     await createAudit({
       action: "create",
       entityType: "Member",
@@ -148,24 +148,15 @@ router.put("/:id", auth, async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id))
       return res.status(400).json({ error: "Invalid member ID format" });
 
-    // ✅ Capture state *before* update for audit log
     const beforeUpdate = await Member.findById(id).lean();
     if (!beforeUpdate) return res.status(404).json({ error: "Member not found" });
 
     const {
       head,
-      rationNo,
-      uniqueNumber,
-      address,
-      mobile,
-      additionalMobiles,
-      pincode,
-      zone,
       familyMembers,
-      // No need to destructure 'city' here because of the line below
     } = req.body;
 
-    const updateData = { ...req.body }; // This line automatically includes 'city'
+    const updateData = { ...req.body }; 
     
     // Recalculate age if birthdate changes
     if (head && head.birthdate) {
@@ -178,9 +169,13 @@ router.put("/:id", auth, async (req, res) => {
         updateData.familyMembers = normalizeFamilyMembers(familyMembers);
     }
 
+    // ✅ Ensure issueDate is stored as Date or Null
+    if (updateData.hasOwnProperty('issueDate')) {
+        updateData.issueDate = toDateOrNull(updateData.issueDate);
+    }
+
     const updatedMember = await Member.findByIdAndUpdate(id, updateData, { new: true });
 
-    // ✅ Create audit log for update
     await createAudit({
       action: "update",
       entityType: "Member",
@@ -206,13 +201,11 @@ router.delete("/:id", auth, async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id))
       return res.status(400).json({ error: "Invalid member ID format" });
 
-    // ✅ Capture state *before* delete for audit log
     const beforeDelete = await Member.findById(id).lean();
     if (!beforeDelete) return res.status(404).json({ error: "Member not found" });
 
     await Member.findByIdAndDelete(id);
 
-    // ✅ Create audit log for deletion
     await createAudit({
       action: "delete",
       entityType: "Member",
@@ -249,7 +242,7 @@ router.get("/verify/:id", async (req, res) => {
 
     if (!member) {
       return res
-        .status(4404) // Typo: Should be 404
+        .status(404) // Corrected 4404 to 404
         .json({ valid: false, message: "આ સભ્ય કાર્ડ અમાન્ય છે" });
     }
 

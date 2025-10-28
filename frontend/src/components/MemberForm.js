@@ -31,21 +31,20 @@ const calculateAge = (dateStr) => {
 
 export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
   const [form, setForm] = useState({
-    // ✅ This structure now holds the flat fields for submission
     headName: "",
     headGender: "",
     headBirthdate: "",
     headAge: "",
     rationNo: "",
     address: "",
-    city: "", // ✅ 1. ADDED CITY TO STATE
+    city: "", 
     mobile: "",
     pincode: "",
     zone: "",
     uniqueNumber: "",
+    issueDate: "", // ✅ ADDED Issue Date
   });
 
-  // ✅ NEW: State for additional mobiles
   const [additionalMobiles, setAdditionalMobiles] = useState([]);
   const [familyMembers, setFamilyMembers] = useState([]);
   const [zones, setZones] = useState([]);
@@ -65,14 +64,15 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
       headAge: memberToEdit.head?.age || (memberToEdit.head?.birthdate ? calculateAge(String(memberToEdit.head.birthdate).slice(0, 10)) : ""),
       rationNo: memberToEdit.rationNo || "",
       address: memberToEdit.address || "",
-      city: memberToEdit.city || "", // ✅ 2. POPULATE CITY ON EDIT
+      city: memberToEdit.city || "",
       mobile: memberToEdit.mobile || "",
       pincode: memberToEdit.pincode || "",
       zone: z || "",
       uniqueNumber: memberToEdit.uniqueNumber || "",
+      // ✅ POPULATE Issue Date
+      issueDate: memberToEdit.issueDate ? String(memberToEdit.issueDate).slice(0, 10) : "",
     });
     
-    // ✅ Populate additional mobiles
     setAdditionalMobiles(memberToEdit.additionalMobiles || []);
 
     setFamilyMembers(
@@ -112,7 +112,6 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
     }
   };
   
-  // ✅ Handlers for additional mobiles
   const addAdditionalMobile = () => setAdditionalMobiles(prev => [...prev, ""]);
   const removeAdditionalMobile = (idx) => setAdditionalMobiles(prev => prev.filter((_, i) => i !== idx));
   const handleAdditionalMobileChange = (idx, value) => {
@@ -141,7 +140,6 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // ✅ Create the nested 'head' object that the backend API expects
     const payload = {
         _id: form._id,
         head: {
@@ -152,13 +150,14 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
         },
         rationNo: form.rationNo,
         address: form.address,
-        city: form.city, // ✅ 3. ADD CITY TO SUBMIT PAYLOAD
+        city: form.city,
         mobile: form.mobile,
-        additionalMobiles, // ✅ Include in payload
+        additionalMobiles,
         pincode: form.pincode,
         zone: form.zone,
         uniqueNumber: form.uniqueNumber,
         familyMembers,
+        issueDate: form.issueDate, // ✅ ADD Issue Date TO PAYLOAD
     };
     onSubmit(payload);
   };
@@ -187,9 +186,14 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
             <Grid item xs={12} sm={6}><TextField label="સભ્ય નંબર (Unique Number)" name="uniqueNumber" value={form.uniqueNumber} onChange={handleChange} required fullWidth size="small" /></Grid>
             <Grid item xs={12} sm={6}><TextField label="રેશન નંબર" name="rationNo" value={form.rationNo} onChange={handleChange} required fullWidth size="small" /></Grid>
             <Grid item xs={12} sm={6}><TextField label="મોબાઇલ નંબર" name="mobile" value={form.mobile} onChange={handleChange} required fullWidth size="small" /></Grid>
+            
+            {/* ✅ ADDED Issue Date Field */}
+            <Grid item xs={12} sm={6}>
+                <TextField label="જારી તારીખ (Issue Date)" name="issueDate" type="date" InputLabelProps={{ shrink: true }} value={form.issueDate} onChange={handleChange} fullWidth size="small" />
+            </Grid>
+            
             <Grid item xs={12}><TextField label="સરનામું" name="address" value={form.address} onChange={handleChange} required fullWidth size="small" multiline minRows={2} /></Grid>
             
-            {/* ✅ 4. ADDED CITY TEXTFIELD AND ADJUSTED GRID */}
             <Grid item xs={12} sm={4}><TextField label="શહેર" name="city" value={form.city} onChange={handleChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} sm={4}><TextField label="પિનકોડ" name="pincode" value={form.pincode} onChange={handleChange} fullWidth size="small" inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 6 }} /></Grid>
             <Grid item xs={12} sm={4}>
@@ -202,7 +206,6 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
             </Grid>
           </Grid>
           
-          {/* ✅ Additional Mobile Numbers Section */}
           <Box>
               <Typography variant="h6" gutterBottom>વધારાના મોબાઇલ નંબર</Typography>
               {additionalMobiles.map((m, idx) => (

@@ -44,11 +44,12 @@ import {
   Visibility,
   ExpandMore,
 } from "@mui/icons-material";
-import {
+// Import all functions from 'services/api.js'
+import api, {
   getRequests,
   approveRequest,
   declineRequest,
-  getZones,
+  getPublicZones, // Use the function from api.js
 } from "../services/api";
 
 // --- Helper Functions ---
@@ -103,29 +104,44 @@ export default function Requests() {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  // This helper is correct for the aligned schema
   const getRequestData = (request) => {
     if (!request) return {};
     return {
-      headName: request.headName || "-", headGender: request.headGender || "-",
-      headBirthday: request.headBirthday || null, headAge: request.headAge || "-",
-      rationNo: request.rationNo || "-", address: request.address || "-",
-      mobile: request.mobile || "-", additionalMobiles: request.additionalMobiles || [],
-      pincode: request.pincode || "-", zone: request.zone || null,
+      headName: request.head?.name || "-", 
+      headGender: request.head?.gender || "-",
+      headBirthday: request.head?.birthdate || null, 
+      headAge: request.head?.age || "-",
+      rationNo: request.rationNo || "-", 
+      address: request.address || "-",
+      city: request.city || "-", 
+      mobile: request.mobile || "-", 
+      additionalMobiles: request.additionalMobiles || [],
+      pincode: request.pincode || "-", 
+      zone: request.zone || null,
       familyMembers: request.familyMembers || []
     };
   };
 
-  const renderZone = (r) => {
+  const renderZone = useCallback((r) => {
     const z = getRequestData(r).zone;
     if (!z) return "-";
     if (typeof z === "string") return zoneMap[z] || z;
-    return z.number && z.name ? `${z.number} - ${z.name}` : z.name || z.number || "-";
-  };
+    // Handle populated zone object
+    if (typeof z === "object" && z !== null) {
+      return z.number && z.name ? `${z.number} - ${z.name}` : z.name || z.number || "-";
+    }
+    return zoneMap[z] || z; // Fallback
+  }, [zoneMap]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [{ data: reqs }, { data: zs }] = await Promise.all([ getRequests(), getZones() ]);
+      const [{ data: reqs }, { data: zs }] = await Promise.all([ 
+        getRequests(), 
+        getPublicZones() 
+      ]);
+      
       setRows((reqs || []).map(req => ({ ...req, status: (req.status || 'pending').toLowerCase() })));
       setZones(zs || []);
       const zmap = {};
@@ -147,7 +163,8 @@ export default function Requests() {
     if (statusFilter !== "all") filtered = filtered.filter((row) => row.status === statusFilter);
     if (zoneFilter !== "all") {
       filtered = filtered.filter((row) => {
-        const zoneId = typeof getRequestData(row).zone === 'string' ? getRequestData(row).zone : getRequestData(row).zone?._id;
+        const zoneData = getRequestData(row).zone;
+        const zoneId = typeof zoneData === 'string' ? zoneData : zoneData?._id;
         return zoneId === zoneFilter;
       });
     }
@@ -166,7 +183,7 @@ export default function Requests() {
     }
     setFilteredRows(filtered);
     setPage(0);
-  }, [searchTerm, statusFilter, zoneFilter, rows, zoneMap]);
+  }, [searchTerm, statusFilter, zoneFilter, rows, zoneMap, renderZone]);
 
   const paginatedRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
@@ -178,7 +195,6 @@ export default function Requests() {
     if (!selected?._id || !sabhyaNo.trim()) return;
     setSubmitting(true);
     try {
-      // ✅ **FIXED**: Pass sabhyaNo as a string directly to the service function.
       await approveRequest(selected._id, sabhyaNo);
       showSnackbar("Request approved and member created!", "success");
       setApproveOpen(false);
@@ -198,7 +214,9 @@ export default function Requests() {
     if (!selected?._id) return;
     setSubmitting(true);
     try {
-      await declineRequest(selected._id);
+      // ✅ FIX: Removed the second argument ("Rejected by admin") 
+      // to match the backend DELETE route which doesn't accept notes.
+      await declineRequest(selected._id); 
       showSnackbar("Request rejected.", "info");
       setDeclineOpen(false);
       await load();
@@ -307,6 +325,8 @@ export default function Requests() {
           </>
         )}
       </Stack>
+      
+      {/* Details Dialog */}
       <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} fullWidth maxWidth="md" fullScreen={isMobile}>
         <DialogTitle>અરજી વિગતો</DialogTitle>
         <DialogContent>
@@ -322,14 +342,22 @@ export default function Requests() {
                     <Grid item xs={12} sm={6}><TextField label="લિંગ" value={data.headGender === 'male' ? 'પુરુષ' : data.headGender === 'female' ? 'સ્ત્રી' : 'અન્ય'} fullWidth InputProps={{ readOnly: true }} /></Grid>
                     <Grid item xs={12} sm={6}><TextField label="જન્મતારીખ" value={fmtDate(data.headBirthday)} fullWidth InputProps={{ readOnly: true }} /></Grid>
                     <Grid item xs={12} sm={6}><TextField label="ઉંમર" value={data.headAge || calcAgeFromDOB(data.headBirthday) || "-"} fullWidth InputProps={{ readOnly: true }} /></Grid>
+                  </Grid>
+                </Box>
+
+                <Box>
+                  <Typography variant="h6" gutterBottom>સરનામું અને સંપર્ક</Typography>
+                  <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}><TextField label="રેશન કાર્ડ નંબર" value={data.rationNo} fullWidth InputProps={{ readOnly: true }} /></Grid>
                     <Grid item xs={12} sm={6}><TextField label="મોબાઇલ નંબર" value={data.mobile} fullWidth InputProps={{ readOnly: true }} /></Grid>
                     {data.additionalMobiles && data.additionalMobiles.length > 0 && (<Grid item xs={12} sm={6}><TextField label="વધારાના મોબાઇલ નંબર" value={data.additionalMobiles.join(', ')} fullWidth InputProps={{ readOnly: true }} /></Grid>)}
                     <Grid item xs={12}><TextField label="સરનામું" value={data.address} fullWidth multiline rows={2} InputProps={{ readOnly: true }} /></Grid>
-                    {data.pincode && <Grid item xs={12} sm={6}><TextField label="પિનકોડ" value={data.pincode} fullWidth InputProps={{ readOnly: true }} /></Grid>}
+                    <Grid item xs={12} sm={6}><TextField label="શહેર" value={data.city} fullWidth InputProps={{ readOnly: true }} /></Grid>
+                    <Grid item xs={12} sm={6}><TextField label="પિનકોડ" value={data.pincode} fullWidth InputProps={{ readOnly: true }} /></Grid>
                     <Grid item xs={12} sm={6}><TextField label="ઝોન" value={renderZone(detailRequest)} fullWidth InputProps={{ readOnly: true }} /></Grid>
                   </Grid>
                 </Box>
+                
                 <Box>
                   <Typography variant="h6" gutterBottom>પરિવારના સભ્યો ({data.familyMembers.length})</Typography>
                   {data.familyMembers && data.familyMembers.length > 0 ? (<Stack spacing={2}>{data.familyMembers.map((member, index) => (<Accordion key={index} defaultExpanded={index === 0}><AccordionSummary expandIcon={<ExpandMore />}><Typography>{member.name || "અજ્ઞાત"} ({member.relation || "અજ્ઞાત સંબંધ"})</Typography></AccordionSummary><AccordionDetails><Grid container spacing={2}><Grid item xs={12} sm={6}><TextField label="નામ" value={member.name || "-"} fullWidth InputProps={{ readOnly: true }} /></Grid><Grid item xs={12} sm={6}><TextField label="સબંધ" value={member.relation || "-"} fullWidth InputProps={{ readOnly: true }} /></Grid><Grid item xs={12} sm={6}><TextField label="જન્મતારીખ" value={fmtDate(member.birthdate)} fullWidth InputProps={{ readOnly: true }} /></Grid><Grid item xs={12} sm={6}><TextField label="ઉંમર" value={member.age || calcAgeFromDOB(member.birthdate) || "-"} fullWidth InputProps={{ readOnly: true }} /></Grid><Grid item xs={12}><TextField label="લિંગ" value={member.gender === 'male' ? 'પુરુષ' : 'સ્ત્રી'} fullWidth InputProps={{ readOnly: true }} /></Grid></Grid></AccordionDetails></Accordion>))}</Stack>) : (<Typography variant="body2">કોઈ પરિવારના સભ્યો નથી</Typography>)}
@@ -343,16 +371,21 @@ export default function Requests() {
           {detailRequest?.status === "pending" && (<><Button onClick={() => { setDetailOpen(false); onOpenDecline(detailRequest); }} color="error">નામંજૂર કરો</Button><Button onClick={() => { setDetailOpen(false); onOpenApprove(detailRequest); }} color="success" variant="contained">મંજૂર કરો</Button></>)}
         </DialogActions>
       </Dialog>
+
+      {/* Approve Dialog */}
       <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} fullScreen={isMobile}>
         <DialogTitle>અરજી મંજૂર કરો</DialogTitle>
         <DialogContent><Typography sx={{ mb: 2 }}>કૃપા કરી આ સભ્ય માટે <strong>સભ્ય નંબર</strong> દાખલ કરો:</Typography><TextField label="સભ્ય નંબર" value={sabhyaNo} onChange={(e) => setSabhyaNo(e.target.value)} fullWidth autoFocus inputProps={{ maxLength: 20 }} sx={{ mt: 1 }} /></DialogContent>
         <DialogActions><Button onClick={() => setApproveOpen(false)}>રદ કરો</Button><Button variant="contained" onClick={onApprove} disabled={submitting || !sabhyaNo.trim()}>{submitting ? "મંજૂરી થઈ રહી છે..." : "મંજૂર કરો"}</Button></DialogActions>
       </Dialog>
+
+      {/* Decline Dialog */}
       <Dialog open={declineOpen} onClose={() => setDeclineOpen(false)} fullScreen={isMobile}>
         <DialogTitle>નામંજૂરીની ખાતરી કરો</DialogTitle>
         <DialogContent><Typography>શું તમે આ અરજી <strong>નામંજૂર</strong> કરવા ઈચ્છો છો?</Typography></DialogContent>
         <DialogActions><Button onClick={() => setDeclineOpen(false)}>રદ કરો</Button><Button variant="contained" color="error" onClick={onDeclineConfirm} disabled={submitting}>{submitting ? "નામંજૂરી થઈ રહી છે..." : "નામંજૂર કરો"}</Button></DialogActions>
       </Dialog>
+      
       <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={handleCloseSnackbar} anchorOrigin={{ vertical: "top", horizontal: "center" }} sx={{ "& .MuiSnackbarContent-root": { width: isMobile ? "90%" : "auto" } }}>
         <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} variant="filled" sx={{ width: "100%" }}>{snackbar.message}</Alert>
       </Snackbar>

@@ -127,13 +127,15 @@ async function generateCard(memberId) {
     if (!isGujarati(member.address)) addressFontSize -= 6;
     doc.font('regular').fontSize(addressFontSize).fillColor('blue').text(member.address || '', 38, 335, { width: 700, height: 120, ellipsis: true, align: 'left' });
 
-    const city = member.city || '';
-    const pincode = member.pincode || '';
-    const cityPincode = [city, pincode].filter(Boolean).join(' - '); // Joins with ' - ' only if both exist
+    // ...
+    const city = member.city || '';
+    const pincode = member.pincode || '';
+    const cityPincode = [city, pincode].filter(Boolean).join(' - '); // Joins with ' - ' only if both exist
 
-    doc.font('regular').fontSize(30).fillColor('blue').text(cityPincode, 38, 455, { width: 700 });
-
-    doc.font('bold').fontSize(40).fillColor('red').text(`મો. : ${member.mobile || ''}`, 38, 491, { width: 800 });
+    doc.font('bold').fontSize(35).fillColor('red').text(cityPincode, 38, 450, { width: 700 }); // <--- NEW LINE
+    
+    doc.font('bold').fontSize(40).fillColor('blue').text(`મો. : ${member.mobile || ''}`, 38, 491, { width: 800 });
+// ...
 
     const family = member.familyMembers || [];
     for (let i = 0; i < Math.min(family.length, 8); i++) {
@@ -149,7 +151,7 @@ async function generateCard(memberId) {
       doc.font('regular').fontSize(famFontSize).fillColor('purple').text(relationText, 658, yPos, { width: 200, ellipsis: true });
     }
 
-    const issueDateFormatted = new Date(member.createdAt).toLocaleDateString('en-GB');
+    const issueDateFormatted = new Date(member.issueDate).toLocaleDateString('en-GB');
     doc.font('bold').fontSize(25).fillColor('blue').text(`Date of Issue: ${issueDateFormatted}`, 305, 1120);
 
     doc.end();
