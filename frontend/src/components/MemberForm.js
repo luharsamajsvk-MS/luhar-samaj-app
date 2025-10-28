@@ -1,4 +1,3 @@
-// frontend/src/components/MemberForm.js
 import React, { useEffect, useState } from "react";
 import {
   TextField,
@@ -45,6 +44,8 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
     issueDate: "", // ✅ ADDED Issue Date
   });
 
+  // 🔹 NEW: State for the manual request number
+  const [requestNumber, setRequestNumber] = useState(""); 
   const [additionalMobiles, setAdditionalMobiles] = useState([]);
   const [familyMembers, setFamilyMembers] = useState([]);
   const [zones, setZones] = useState([]);
@@ -52,7 +53,20 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
 
   // fill when editing an existing Member
   useEffect(() => {
-    if (!memberToEdit) return;
+    // 🔹 NEW: Clear request number when form opens
+    setRequestNumber(""); 
+
+    if (!memberToEdit) {
+      // 🔹 NEW: Reset form if no member is being edited
+      setForm({
+        headName: "", headGender: "", headBirthdate: "", headAge: "",
+        rationNo: "", address: "", city: "", mobile: "",
+        pincode: "", zone: "", uniqueNumber: "", issueDate: "",
+      });
+      setAdditionalMobiles([]);
+      setFamilyMembers([]);
+      return;
+    }
 
     const z = typeof memberToEdit.zone === "object" ? memberToEdit.zone?._id : memberToEdit.zone;
 
@@ -159,7 +173,9 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
         familyMembers,
         issueDate: form.issueDate, // ✅ ADD Issue Date TO PAYLOAD
     };
-    onSubmit(payload);
+    
+    // 🔹 MODIFIED: Pass both payload and requestNumber to the parent
+    onSubmit(payload, requestNumber);
   };
 
   return (
@@ -183,6 +199,20 @@ export default function MemberForm({ memberToEdit, onSubmit, loading, error }) {
           </Grid>
 
           <Grid container spacing={2}>
+            {/* 🔹 NEW: Added Request Number field */}
+            <Grid item xs={12} sm={6}>
+              <TextField 
+                label="રિક્વેસ્ટ નંબર" 
+                name="requestNumber" 
+                value={requestNumber} 
+                onChange={(e) => setRequestNumber(e.target.value)} 
+                required 
+                fullWidth 
+                size="small" 
+                helperText="દરેક ફેરફાર માટે નવો રિક્વેસ્ટ નંબર દાખલ કરો."
+              />
+            </Grid>
+            
             <Grid item xs={12} sm={6}><TextField label="સભ્ય નંબર (Unique Number)" name="uniqueNumber" value={form.uniqueNumber} onChange={handleChange} required fullWidth size="small" /></Grid>
             <Grid item xs={12} sm={6}><TextField label="રેશન નંબર" name="rationNo" value={form.rationNo} onChange={handleChange} required fullWidth size="small" /></Grid>
             <Grid item xs={12} sm={6}><TextField label="મોબાઇલ નંબર" name="mobile" value={form.mobile} onChange={handleChange} required fullWidth size="small" /></Grid>

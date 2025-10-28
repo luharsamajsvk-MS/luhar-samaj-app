@@ -88,6 +88,7 @@ export default function Requests() {
   const [approveOpen, setApproveOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [sabhyaNo, setSabhyaNo] = useState("");
+  const [requestNumber, setRequestNumber] = useState(""); // 🔹 NEW: State for manual request number
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailRequest, setDetailRequest] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -188,14 +189,25 @@ export default function Requests() {
   const paginatedRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const onOpenApprove = (row) => {
-    setSelected(row); setSabhyaNo(""); setApproveOpen(true);
+    setSelected(row); 
+    setSabhyaNo(""); 
+    setRequestNumber(""); // 🔹 NEW: Clear request number state on open
+    setApproveOpen(true);
   };
 
   const onApprove = async () => {
-    if (!selected?._id || !sabhyaNo.trim()) return;
+    // 🔹 MODIFIED: Check for requestNumber as well
+    if (!selected?._id || !sabhyaNo.trim() || !requestNumber.trim()) return;
+    
     setSubmitting(true);
     try {
-      await approveRequest(selected._id, sabhyaNo);
+      // 🔹 MODIFIED: Pass an object with uniqueNumber and requestNumber
+      const payload = {
+        uniqueNumber: sabhyaNo,
+        requestNumber: requestNumber
+      };
+      await approveRequest(selected._id, payload); 
+      
       showSnackbar("Request approved and member created!", "success");
       setApproveOpen(false);
       await load();
@@ -375,8 +387,39 @@ export default function Requests() {
       {/* Approve Dialog */}
       <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} fullScreen={isMobile}>
         <DialogTitle>અરજી મંજૂર કરો</DialogTitle>
-        <DialogContent><Typography sx={{ mb: 2 }}>કૃપા કરી આ સભ્ય માટે <strong>સભ્ય નંબર</strong> દાખલ કરો:</Typography><TextField label="સભ્ય નંબર" value={sabhyaNo} onChange={(e) => setSabhyaNo(e.target.value)} fullWidth autoFocus inputProps={{ maxLength: 20 }} sx={{ mt: 1 }} /></DialogContent>
-        <DialogActions><Button onClick={() => setApproveOpen(false)}>રદ કરો</Button><Button variant="contained" onClick={onApprove} disabled={submitting || !sabhyaNo.trim()}>{submitting ? "મંજૂરી થઈ રહી છે..." : "મંજૂર કરો"}</Button></DialogActions>
+        <DialogContent>
+          {/* 🔹 MODIFIED: Wrapped in Stack and updated text */}
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography>કૃપા કરી આ સભ્ય માટે <strong>સભ્ય નંબર</strong> અને <strong>રિક્વેસ્ટ નંબર</strong> દાખલ કરો:</Typography>
+            <TextField 
+              label="સભ્ય નંબર" 
+              value={sabhyaNo} 
+              onChange={(e) => setSabhyaNo(e.target.value)} 
+              fullWidth 
+              autoFocus 
+              inputProps={{ maxLength: 20 }} 
+            />
+            {/* 🔹 NEW: Added TextField for Request Number */}
+            <TextField 
+              label="રિક્વેસ્ટ નંબર" 
+              value={requestNumber} 
+              onChange={(e) => setRequestNumber(e.target.value)} 
+              fullWidth 
+              inputProps={{ maxLength: 20 }} 
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApproveOpen(false)}>રદ કરો</Button>
+          {/* 🔹 MODIFIED: Updated disabled check */}
+          <Button 
+            variant="contained" 
+            onClick={onApprove} 
+            disabled={submitting || !sabhyaNo.trim() || !requestNumber.trim()}
+          >
+            {submitting ? "મંજૂરી થઈ રહી છે..." : "મંજૂર કરો"}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Decline Dialog */}

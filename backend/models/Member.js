@@ -68,85 +68,8 @@ const memberSchema = new mongoose.Schema(
 );
 
 // -------------------- Audit Helpers --------------------
-memberSchema.methods.setAuditContext = function (userId, name, email, ip, ua) {
-  this._auditContext = { userId, name, email, ip, ua };
-};
-
-function diffObjects(oldObj, newObj) {
-  const changes = [];
-  Object.keys(newObj).forEach((field) => {
-    if (String(newObj[field]) !== String(oldObj?.[field])) {
-      changes.push({ field, before: oldObj?.[field], after: newObj[field] });
-    }
-  });
-  return changes;
-}
-
-// -------------------- Hooks --------------------
-memberSchema.pre("save", async function (next) {
-  if (!this._auditContext) return next();
-
-  try {
-    const AuditLog = mongoose.model("AuditLog"); // avoid circular dep
-    const isNew = this.isNew;
-    let changes = [];
-
-    if (!isNew) {
-      const existing = await this.constructor.findById(this._id).lean();
-      if (existing) {
-        changes = diffObjects(existing, this._doc);
-      }
-    }
-
-    await AuditLog.create({
-      action: isNew ? "create" : "update",
-      entityType: "Member",
-      entityId: this._id,
-      memberId: this._id,
-      changes,
-      user: {
-        id: this._auditContext.userId,
-        name: this._auditContext.name,
-        email: this._auditContext.email,
-      },
-      ipAddress: this._auditContext.ip,
-      userAgent: this._auditContext.ua,
-    });
-
-    next();
-  } catch (err) {
-    console.error("Audit log error:", err);
-    next(err);
-  }
-});
-
-// 🔹 DELETE hook
-memberSchema.pre("remove", async function (next) {
-  if (!this._auditContext) return next();
-
-  try {
-    const AuditLog = mongoose.model("AuditLog");
-
-    await AuditLog.create({
-      action: "delete",
-      entityType: "Member",
-      entityId: this._id,
-      memberId: this._id,
-      changes: [{ before: this.toObject() }],
-      user: {
-        id: this._auditContext.userId,
-        name: this._auditContext.name,
-        email: this._auditContext.email,
-      },
-      ipAddress: this._auditContext.ip,
-      userAgent: this._auditContext.ua,
-    });
-
-    next();
-  } catch (err) {
-    console.error("Audit log error:", err);
-    next(err);
-  }
-});
+// 🔹 REMOVED setAuditContext, diffObjects, pre('save') hook, and pre('remove') hook.
+// This prevents duplicate logging, as audit logging is already
+// handled manually in the routes (e.g., routes/members.js) via createAudit.
 
 module.exports = mongoose.model("Member", memberSchema);

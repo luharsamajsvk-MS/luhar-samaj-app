@@ -71,9 +71,9 @@ export const deleteZone = (id) => api.delete(`/zones/${id}`);
 /* ------------------- REQUESTS ------------------- */
 export const getRequests = () => api.get("/requests");
 
-// Send uniqueNumber in body for approval
-export const approveRequest = (id, uniqueNumber) =>
-  api.post(`/requests/${id}/approve`, { uniqueNumber });
+// 🔹 MODIFIED: This now sends the entire payload object (which contains uniqueNumber and requestNumber)
+export const approveRequest = (id, payload) =>
+  api.post(`/requests/${id}/approve`, payload);
 
 // ✅ FIX: Use DELETE method and remove reviewNotes parameter
 // This matches the backend route: router.delete("/:id", auth, ...)

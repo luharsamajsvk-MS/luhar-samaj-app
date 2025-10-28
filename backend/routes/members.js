@@ -53,6 +53,66 @@ function normalizeFamilyMembers(input) {
     });
 }
 
+// ✅ NEW HTML HELPER FUNCTION
+function sendHtmlResponse(res, statusCode, title, bodyContent) {
+  const html = `
+    <!DOCTYPE html>
+    <html lang="gu">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${title}</title>
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          display: grid;
+          place-items: center;
+          min-height: 90vh;
+          background-color: #f4f7f6;
+          margin: 0;
+          color: #333;
+        }
+        .card {
+          background-color: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
+          padding: 2rem;
+          max-width: 450px;
+          width: 90%;
+          text-align: center;
+          border-top: 8px solid;
+        }
+        .card.success { border-color: #28a745; }
+        .card.error { border-color: #dc3545; }
+        h2 {
+          font-size: 1.75rem;
+          margin-top: 0;
+          font-weight: 600;
+        }
+        .card.success h2 { color: #28a745; }
+        .card.error h2 { color: #dc3545; }
+        p {
+          font-size: 1.1rem;
+          line-height: 1.6;
+          margin: 1rem 0;
+        }
+        .data-item {
+          font-weight: 500;
+          color: #555;
+        }
+        .data-item strong {
+          color: #000;
+        }
+      </style>
+    </head>
+    <body>
+      ${bodyContent}
+    </body>
+    </html>
+  `;
+  res.status(statusCode).type("html").send(html);
+}
+
 // ----------------- Routes -----------------
 
 // GET all members
@@ -82,7 +142,7 @@ router.post("/", auth, async (req, res) => {
       pincode,
       zone,
       familyMembers,
-      issueDate // ✅ ADDED
+      issueDate 
     } = req.body;
 
     // Validate zone
@@ -118,7 +178,6 @@ router.post("/", auth, async (req, res) => {
       zone,
       familyMembers: normalizeFamilyMembers(familyMembers),
       createdBy: req.user?.id,
-      // ✅ USE provided issueDate or default to new Date()
       issueDate: toDateOrNull(issueDate) || new Date(), 
     });
 
@@ -158,18 +217,15 @@ router.put("/:id", auth, async (req, res) => {
 
     const updateData = { ...req.body }; 
     
-    // Recalculate age if birthdate changes
     if (head && head.birthdate) {
         const headBirthdate = toDateOrNull(head.birthdate);
         updateData.head.age = calcAgeFromDOB(headBirthdate);
     }
     
-    // Re-normalize family members
     if (familyMembers) {
         updateData.familyMembers = normalizeFamilyMembers(familyMembers);
     }
 
-    // ✅ Ensure issueDate is stored as Date or Null
     if (updateData.hasOwnProperty('issueDate')) {
         updateData.issueDate = toDateOrNull(updateData.issueDate);
     }
@@ -223,7 +279,7 @@ router.delete("/:id", auth, async (req, res) => {
 });
 
 
-// VERIFY member card
+// ✅ UPDATED VERIFY ROUTE
 router.get("/verify/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -232,32 +288,87 @@ router.get("/verify/:id", async (req, res) => {
     if (!isNaN(parseInt(id, 10))) {
       query.push({ uniqueNumber: parseInt(id, 10) });
     }
-    if (mongoose.Types.ObjectId.isValid(id)) query.push({ _id: id });
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query.push({ _id: id });
+    }
     
     if (query.length === 0) {
-        return res.status(400).json({ valid: false, message: "Invalid identifier provided." });
+      const errorData = { valid: false, message: "Invalid identifier provided." };
+      
+      // CHECKING ACCEPT HEADER
+      if (req.accepts("html")) {
+        const body = `
+          <div class="card error">
+            <h2>❌ અમાન્ય આઈડી</h2>
+            <p>તમે જે આઈડી દાખલ કરી છે તે અમાન્ય છે.</p>
+          </div>`;
+        return sendHtmlResponse(res, 400, "અમાન્ય આઈડી", body);
+      } else {
+        return res.status(400).json(errorData);
+      }
     }
 
     const member = await Member.findOne({ $or: query }).populate("zone");
 
     if (!member) {
-      return res
-        .status(404) // Corrected 4404 to 404
-        .json({ valid: false, message: "આ સભ્ય કાર્ડ અમાન્ય છે" });
+      const errorData = { valid: false, message: "આ સભ્ય કાર્ડ અમાન્ય છે" };
+      
+      // CHECKING ACCEPT HEADER
+      if (req.accepts("html")) {
+        const body = `
+          <div class="card error">
+            <h2>❌ કાર્ડ મળ્યું નથી</h2>
+            <p>${errorData.message}</p>
+          </div>`;
+        return sendHtmlResponse(res, 404, "અમાન્ય કાર્ડ", body);
+      } else {
+        return res.status(404).json(errorData);
+      }
     }
 
-    res.json({
+    // PREPARE SUCCESS DATA
+    const issueDate = member.issueDate
+      ? member.issueDate.toISOString().split("T")[0]
+      : "N/A";
+      
+    const successData = {
       valid: true,
       message: "આ સભ્ય કાર્ડ માન્ય છે",
       trust: "લુહાર સમાજ સાવરકુંડલા ટ્રસ્ટ રજી નં. ૧૧૪૫ એ",
-      dateOfIssue: member.issueDate
-        ? member.issueDate.toISOString().split("T")[0]
-        : null,
+      dateOfIssue: issueDate,
       સભ્યનં: member.uniqueNumber,
-    });
+    };
+    
+    // CHECKING ACCEPT HEADER
+    if (req.accepts("html")) {
+      const body = `
+        <div class="card success">
+          <h2>✅ ${successData.message}</h2>
+          <p>${successData.trust}</p>
+          <hr style="border:0; border-top:1px solid #eee; margin: 1.5rem 0;">
+          <p class="data-item"><strong>સભ્યનં:</strong> ${successData.સભ્યનં}</p>
+          <p class="data-item"><strong>ઇશ્યુ તારીખ:</strong> ${successData.dateOfIssue}</p>
+        </div>`;
+      return sendHtmlResponse(res, 200, "માન્ય કાર્ડ", body);
+    } else {
+      return res.json(successData);
+    }
+
   } catch (err) {
     console.error("QR verify error:", err);
-    res.status(500).json({ valid: false, message: "સર્વર ભૂલ" });
+    const errorData = { valid: false, message: "સર્વર ભૂલ" };
+    
+    // CHECKING ACCEPT HEADER
+    if (req.accepts("html")) {
+        const body = `
+          <div class="card error">
+            <h2>❌ સર્વર ભૂલ</h2>
+            <p>ચકાસણી કરતી વખતે એક ભૂલ આવી. કૃપા કરી ફરી પ્રયાસ કરો.</p>
+          </div>`;
+        return sendHtmlResponse(res, 500, "સર્વર ભૂલ", body);
+    } else {
+        return res.status(500).json(errorData);
+    }
   }
 });
 

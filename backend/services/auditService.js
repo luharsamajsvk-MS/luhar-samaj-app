@@ -1,7 +1,8 @@
 // backend/services/auditService.js
 const AuditLog = require("../models/AuditLog");
 
-const IGNORED_FIELDS = new Set(['_id', '__v', 'createdAt', 'updatedAt', 'createdBy', 'issueDate', 'password']);
+// 🔹 MODIFIED: Added 'requestNumber' to the ignore list for diffing
+const IGNORED_FIELDS = new Set(['_id', '__v', 'createdAt', 'updatedAt', 'createdBy', 'issueDate', 'password', 'requestNumber']);
 
 /**
  * A powerful function to find detailed differences between two objects,
@@ -22,23 +23,16 @@ function detailedDiff(before = {}, after = {}) {
 
         if (JSON.stringify(beforeVal) === JSON.stringify(afterVal)) continue;
 
-        // Handle array comparisons (like familyMembers)
-        if (Array.isArray(beforeVal) && Array.isArray(afterVal)) {
-            const beforeMap = new Map(beforeVal.map(item => [item.name || item, item]));
-            const afterMap = new Map(afterVal.map(item => [item.name || item, item]));
-
-            // Check for added/modified items
-            for (const [name, item] of afterMap.entries()) {
-                if (!beforeMap.has(name)) {
-                    changes.push({ field: key, type: 'added', value: item.name || item });
-                }
-            }
-            // Check for removed items
-            for (const [name, item] of beforeMap.entries()) {
-                if (!afterMap.has(name)) {
-                    changes.push({ field: key, type: 'removed', value: item.name || item });
-                }
-            }
+        // 🔹 MODIFIED: This logic now correctly logs the *entire* 'before' and 'after'
+        // array for fields like 'familyMembers' or 'additionalMobiles'.
+        // This is what your frontend is expecting.
+        if (Array.isArray(beforeVal) || Array.isArray(afterVal)) {
+            changes.push({ 
+                field: key, 
+                before: beforeVal, 
+                after: afterVal, 
+                type: 'modified' 
+            });
         } 
         // Handle nested object comparisons (like 'head')
         else if (typeof beforeVal === 'object' && beforeVal !== null && typeof afterVal === 'object' && afterVal !== null) {
@@ -53,13 +47,15 @@ function detailedDiff(before = {}, after = {}) {
     return changes;
 }
 
-async function createAudit({ action, entityType, entityId, requestId, memberId, before, after, req }) {
+// 🔹 MODIFIED: Added 'requestNumber' to the function parameters
+async function createAudit({ action, entityType, entityId, requestId, memberId, before, after, req, requestNumber }) {
   // Use the new detailedDiff function
   const changes = detailedDiff(before, after);
 
   if (changes.length === 0 && action === 'update') return null;
 
   return AuditLog.create({
+    requestNumber, // 🔹 MODIFIED: Add this line to save the manual request number
     action, entityType, entityId,
     requestId: requestId || undefined,
     memberId: memberId || undefined,

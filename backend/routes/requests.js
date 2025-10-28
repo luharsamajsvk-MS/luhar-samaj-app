@@ -137,9 +137,15 @@ router.get("/", auth, async (req, res) => {
  * @access  Private (Auth)
  */
 router.post("/:id/approve", auth, async (req, res) => {
-  const { uniqueNumber } = req.body;
+  // 🔹 MODIFIED: Get both uniqueNumber and requestNumber from body
+  const { uniqueNumber, requestNumber } = req.body;
+
+  // 🔹 MODIFIED: Validate both fields
   if (!uniqueNumber) {
     return res.status(400).json({ error: "Unique Number (સભ્ય નંબર) is required." });
+  }
+  if (!requestNumber) {
+    return res.status(400).json({ error: "Request Number (રિક્વેસ્ટ નંબર) is required." });
   }
 
   try {
@@ -180,14 +186,15 @@ router.post("/:id/approve", auth, async (req, res) => {
     request.status = "approved";
     await request.save();
 
-    // Create Audit Log
+    // 🔹 MODIFIED: Create Audit Log with manual requestNumber
     await createAudit({
-      action: "approve_request",
+      action: "create", // 🔹 MODIFIED: Changed to 'create' for consistency
       entityType: "Member",
       entityId: newMember._id,
-      memberId: newMember._id, // Link to the new member
+      memberId: newMember._id,
+      requestId: request._id, // 🔹 NEW: Link the original request ID
+      requestNumber: requestNumber, // 🔹 NEW: Pass the manual request number
       after: newMember.toObject(),
-      notes: `Approved from request ${request._id}`,
       req,
     });
 

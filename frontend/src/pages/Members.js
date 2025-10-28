@@ -1,4 +1,3 @@
-// frontend/src/pages/Members.js
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import {
@@ -234,13 +233,19 @@ export default function Members() {
         setOpenDialog(false);
     };
 
-    const handleSubmit = async (formData) => {
+    // 🔹 MODIFIED: This function now accepts 'requestNumber' from MemberForm
+    const handleSubmit = async (formData, requestNumber) => {
         try {
+            // 🔹 MODIFIED: Combine formData and requestNumber into a single payload
+            const payload = { ...formData, requestNumber };
+
             if (formData._id) {
-                await updateMember(formData._id, formData);
+                // 🔹 MODIFIED: Send the combined payload for update
+                await updateMember(formData._id, payload);
                 showSnackbar('સભ્ય સફળતાપૂર્વક અપડેટ થયો', 'success');
             } else {
-                await createMember(formData);
+                // 🔹 MODIFIED: Send the combined payload for create
+                await createMember(payload);
                 showSnackbar('સભ્ય સફળતાપૂર્વક ઉમેરાયો', 'success');
             }
             await loadMembers();
@@ -556,6 +561,11 @@ export default function Members() {
             <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth maxWidth="md">
                 <DialogTitle>{currentMember ? 'સભ્ય સંપાદિત કરો' : 'નવો સભ્ય ઉમેરો'}</DialogTitle>
                 <DialogContent dividers>
+                    {/* 🔹 NOTE: You MUST update MemberForm.js 
+                      It now needs to:
+                      1. Have a new TextField for 'Request Number'.
+                      2. Call onSubmit with TWO arguments: onSubmit(formData, requestNumber).
+                    */}
                     <MemberForm onSubmit={handleSubmit} memberToEdit={currentMember} loading={false} error={null} />
                 </DialogContent>
             </Dialog>

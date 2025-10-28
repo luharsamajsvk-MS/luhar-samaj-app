@@ -2,8 +2,8 @@ const mongoose = require("mongoose");
 
 const auditLogSchema = new mongoose.Schema(
   {
-    // 🔹 Unique Audit Number (auto-increment)
-    auditNumber: {
+    // 🔹 Renamed from auditNumber to requestNumber
+    requestNumber: {
       type: Number,
       unique: true,
       index: true,
@@ -60,18 +60,18 @@ auditLogSchema.index({ entityType: 1, entityId: 1 });
 auditLogSchema.index({ "user.id": 1 });
 auditLogSchema.index({ timestamp: -1 });
 
-// 🔹 Auto-increment auditNumber
+// 🔹 Auto-increment requestNumber
 auditLogSchema.pre("save", async function (next) {
-  if (this.auditNumber) return next(); // already set
+  if (this.requestNumber) return next(); // already set
 
   try {
     const last = await this.constructor
       .findOne({})
-      .sort({ auditNumber: -1 })
-      .select("auditNumber")
+      .sort({ requestNumber: -1 }) // 🔹 Updated to sort by requestNumber
+      .select("requestNumber")     // 🔹 Updated to select requestNumber
       .lean();
 
-    this.auditNumber = last ? last.auditNumber + 1 : 1;
+    this.requestNumber = last ? last.requestNumber + 1 : 1; // 🔹 Updated to set requestNumber
     next();
   } catch (err) {
     next(err);
