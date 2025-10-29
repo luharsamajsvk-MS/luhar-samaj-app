@@ -10,28 +10,48 @@ const normalizeMember = (member) => ({
   })) || []
 });
 
-// Get all members
+// Get all (active) members
 export const getMembers = async () => {
   try {
-    console.log('📡 [MemberService] Fetching members...');
+    console.log('📡 [MemberService] Fetching active members...');
     const response = await api.get('/members');
     const normalized = response.data.map(normalizeMember);
-    console.log('✅ [MemberService] Members fetched:', normalized);
+    console.log('✅ [MemberService] Active members fetched:', normalized);
     return normalized;
   } catch (error) {
     console.error(
-      '❌ [MemberService] Error fetching members:',
+      '❌ [MemberService] Error fetching active members:',
       error.response?.data || error.message
     );
     throw error.response?.data?.error || 'Failed to fetch members';
   }
 };
 
+// ✅ --- NEW FUNCTION ---
+// Get all deleted members
+export const getDeletedMembers = async () => {
+  try {
+    console.log('📡 [MemberService] Fetching deleted members...');
+    const response = await api.get('/members/deleted');
+    const normalized = response.data.map(normalizeMember);
+    console.log('✅ [MemberService] Deleted members fetched:', normalized);
+    return normalized;
+  } catch (error) {
+    console.error(
+      '❌ [MemberService] Error fetching deleted members:',
+      error.response?.data || error.message
+    );
+    throw error.response?.data?.error || 'Failed to fetch deleted members';
+  }
+};
+
+
 // Get single member by ID (useful for edit forms)
+// Note: This will not find deleted members unless API is changed
 export const getMemberById = async (id) => {
   try {
     console.log(`📡 [MemberService] Fetching member ID: ${id}`);
-    const response = await api.get(`/members/${id}`);
+    const response = await api.get(`/members/${id}`); // This route might need logic if you want to edit deleted members, but for now it's ok.
     const normalized = normalizeMember(response.data);
     console.log('✅ [MemberService] Member fetched:', normalized);
     return normalized;
@@ -49,7 +69,7 @@ export const createMember = async (memberData) => {
   try {
     console.log('📤 [MemberService] Creating member:', memberData);
     const response = await api.post('/members', memberData);
-    const normalized = normalizeMember(response.data);
+    const normalized = normalizeMember(response.data.member); // ✅ Data is nested under 'member'
     console.log('✅ [MemberService] Member created:', normalized);
     return normalized;
   } catch (error) {
@@ -66,7 +86,7 @@ export const updateMember = async (id, memberData) => {
   try {
     console.log(`✏️ [MemberService] Updating member ID: ${id}`, memberData);
     const response = await api.put(`/members/${id}`, memberData);
-    const normalized = normalizeMember(response.data);
+    const normalized = normalizeMember(response.data.member); // ✅ Data is nested under 'member'
     console.log('✅ [MemberService] Member updated:', normalized);
     return normalized;
   } catch (error) {
@@ -78,18 +98,34 @@ export const updateMember = async (id, memberData) => {
   }
 };
 
-// Delete member
+// Delete member (now soft delete)
 export const deleteMember = async (id) => {
   try {
-    console.log(`🗑️ [MemberService] Deleting member ID: ${id}`);
+    console.log(`🗑️ [MemberService] Soft deleting member ID: ${id}`);
     await api.delete(`/members/${id}`);
-    console.log('✅ [MemberService] Member deleted');
+    console.log('✅ [MemberService] Member soft deleted');
   } catch (error) {
     console.error(
-      '❌ [MemberService] Error deleting member:',
+      '❌ [MemberService] Error soft deleting member:',
       error.response?.data || error.message
     );
     throw error.response?.data?.error || 'Failed to delete member';
+  }
+};
+
+// ✅ --- NEW FUNCTION ---
+// Restore a soft-deleted member
+export const restoreMember = async (id) => {
+  try {
+    console.log(`♻️ [MemberService] Restoring member ID: ${id}`);
+    await api.post(`/members/${id}/restore`);
+    console.log('✅ [MemberService] Member restored');
+  } catch (error) {
+    console.error(
+      '❌ [MemberService] Error restoring member:',
+      error.response?.data || error.message
+    );
+    throw error.response?.data?.error || 'Failed to restore member';
   }
 };
 

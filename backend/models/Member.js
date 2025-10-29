@@ -63,13 +63,18 @@ const memberSchema = new mongoose.Schema(
 
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     issueDate: Date,
+
+    // 🔹 Field for soft delete
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date },
+
+    // ✅ --- NEW FIELD FOR MEMBERSHIP EXPIRY ---
+    membershipValidUntil: { type: Date, index: true },
+    // ----------------------------------------
   },
   { timestamps: true }
 );
 
-// -------------------- Audit Helpers --------------------
-// 🔹 REMOVED setAuditContext, diffObjects, pre('save') hook, and pre('remove') hook.
-// This prevents duplicate logging, as audit logging is already
-// handled manually in the routes (e.g., routes/members.js) via createAudit.
+// ... (rest of the file)
 
 module.exports = mongoose.model("Member", memberSchema);

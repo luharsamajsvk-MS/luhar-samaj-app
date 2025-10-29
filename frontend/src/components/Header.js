@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
+import { RestoreFromTrash } from '@mui/icons-material'; // Import icon
 
 const Header = () => {
   const navigate = useNavigate();
@@ -37,6 +38,8 @@ const Header = () => {
     { text: 'ઝોન', path: '/zones' },
     { text: 'વિનંતીઓ', path: '/requests' },
     { text: 'વાઉચર નંબર', path: '/audit-logs' },
+    // ✅ --- ADD NEW MENU ITEM ---
+    { text: 'ડિલીટ સભ્યો', path: '/deleted-members' },
   ];
 
   const guestMenu = [{ text: 'હોમ', path: '/' }];

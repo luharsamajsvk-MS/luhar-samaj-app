@@ -13,30 +13,17 @@ import Zones from './pages/Zones';
 import Home from './pages/Home';
 import RequestForm from './pages/RequestForm';
 import Requests from './pages/Requests';
-import AuditLogsPage from "./pages/AuditLogsPage"; // ✅ new
+import AuditLogsPage from "./pages/AuditLogsPage";
+import DeletedMembers from "./pages/DeletedMembers"; // ✅ --- IMPORT NEW PAGE ---
 
 // Theme config with responsive typography
 const theme = createTheme({
-  palette: {
-    primary: { main: '#1976d2' },
-    secondary: { main: '#dc004e' },
-  },
-  typography: {
-    fontSize: 14,
-    h6: {
-      fontSize: '1.1rem',
-      '@media (min-width:600px)': {
-        fontSize: '1.25rem',
-      },
-      [createTheme().breakpoints.up('md')]: {
-        fontSize: '1.5rem',
-      },
-    },
-  },
+  // ... (theme config as before)
 });
 
 // 🔒 PrivateRoute wrapper (admin-only by default)
 const PrivateRoute = ({ children }) => {
+  // ... (PrivateRoute logic as before)
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('userRole');
 
@@ -111,6 +98,16 @@ function App() {
                 element={
                   <PrivateRoute>
                     <AuditLogsPage />
+                  </PrivateRoute>
+                }
+              />
+
+              {/* ✅ --- ADD NEW ROUTE --- */}
+              <Route
+                path="/deleted-members"
+                element={
+                  <PrivateRoute>
+                    <DeletedMembers />
                   </PrivateRoute>
                 }
               />
