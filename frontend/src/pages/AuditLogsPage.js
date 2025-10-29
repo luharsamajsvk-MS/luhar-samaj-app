@@ -42,12 +42,12 @@ import api from "../services/api";
  */
 const FamilyMembersDisplay = ({ members }) => {
   if (!Array.isArray(members) || members.length === 0) {
-    return <Typography variant="body2" color="text.secondary" component="span"><i>(empty)</i></Typography>;
+    return <Typography variant="body2" color="text.secondary" component="span"><i>(ખાલી)</i></Typography>;
   }
 
   // Helper to format date, e.g., "DD/MM/YYYY"
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return 'ઉપલબ્ધ નથી';
     try {
       return new Date(dateString).toLocaleDateString('gu-IN', {
         day: '2-digit',
@@ -64,13 +64,13 @@ const FamilyMembersDisplay = ({ members }) => {
       {members.map((member, index) => (
         <Box component="li" key={index} sx={{ mb: 1.5 }}>
           <Typography variant="body2" component="span" sx={{ display: 'block' }}>
-            <strong>{member.name || 'No Name'}</strong>
-            {` (${member.relation || 'N/A'})`}
+            <strong>{member.name || 'નામ નથી'}</strong>
+            {` (${member.relation || 'ઉપલબ્ધ નથી'})`}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pl: 1.5 }}>
-            DOB: {formatDate(member.birthDate)} | 
-            Age: {member.age || 'N/A'} | 
-            Gender: {member.gender || 'N/A'}
+            જન્મ તારીખ: {formatDate(member.birthDate)} | 
+            ઉંમર: {member.age || 'ઉપલબ્ધ નથી'} | 
+            લિંગ: {member.gender || 'ઉપલબ્ધ નથી'}
           </Typography>
         </Box>
       ))}
@@ -94,7 +94,7 @@ const renderValue = (value) => {
 
   // 1. If value is null or undefined, show as 'empty'
   if (value === null || typeof value === 'undefined') {
-    return <Typography variant="body2" color="text.secondary" component="span"><i>(empty)</i></Typography>;
+    return <Typography variant="body2" color="text.secondary" component="span"><i>(ખાલી)</i></Typography>;
   }
 
   // 2. If value is an object or array, stringify it
@@ -110,7 +110,7 @@ const renderValue = (value) => {
 // ✅ UPDATED: This component now conditionally renders FamilyMembersDisplay.
 const ChangesDisplay = ({ changes }) => {
   if (!changes) {
-    return <Typography variant="body2" color="text.secondary">No changes logged.</Typography>;
+    return <Typography variant="body2" color="text.secondary">કોઈ ફેરફારો નોંધાયેલા નથી.</Typography>;
   }
 
   const changesArray = Array.isArray(changes) ? changes : Object.entries(changes).map(([field, values]) => ({
@@ -120,7 +120,7 @@ const ChangesDisplay = ({ changes }) => {
   }));
   
   if (changesArray.length === 0) {
-      return <Typography variant="body2" color="text.secondary">No changes logged.</Typography>;
+      return <Typography variant="body2" color="text.secondary">કોઈ ફેરફારો નોંધાયેલા નથી.</Typography>;
   }
 
   return (
@@ -128,9 +128,9 @@ const ChangesDisplay = ({ changes }) => {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell sx={{ fontWeight: 'bold' }}>Field</TableCell>
-            <TableCell sx={{ fontWeight: 'bold' }}>Before</TableCell>
-            <TableCell sx={{ fontWeight: 'bold' }}>After</TableCell>
+            <TableCell sx={{ fontWeight: 'bold' }}>ફીલ્ડ</TableCell>
+            <TableCell sx={{ fontWeight: 'bold' }}>પહેલાં</TableCell>
+            <TableCell sx={{ fontWeight: 'bold' }}>પછી</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -184,7 +184,7 @@ const getDisplayName = (log) => {
     const nameField = changesArray.find(c => c.field === 'name' || c.field === 'head.name');
     if (nameField) {
       if (log.action === 'delete' && nameField.before) {
-        return `(Deleted: ${nameField.before})`;
+        return `(કાઢી નાખેલ: ${nameField.before})`;
       }
       if (nameField.after) {
         return nameField.after;
@@ -202,6 +202,15 @@ const LogEntryRow = ({ log }) => {
   const [open, setOpen] = useState(false);
   const displayName = getDisplayName(log);
 
+  const getActionLabel = (action) => {
+    switch(action) {
+      case 'create': return 'બનાવ્યું';
+      case 'update': return 'અપડેટ';
+      case 'delete': return 'કાઢી નાખ્યું';
+      default: return action;
+    }
+  };
+
   return (
     <React.Fragment>
       <TableRow 
@@ -214,10 +223,10 @@ const LogEntryRow = ({ log }) => {
             {open ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
           </IconButton>
         </TableCell>
-        <TableCell><Chip label={log.auditNumber} size="small" variant="outlined"/></TableCell>
+        <TableCell><Chip label={log.requestNumber} size="small" variant="outlined"/></TableCell>
         <TableCell>{new Date(log.timestamp).toLocaleString("gu-IN")}</TableCell>
-        <TableCell>{log.user?.name || 'System'}</TableCell>
-        <TableCell><Chip label={log.action} size="small" color={log.action === 'create' ? 'success' : log.action === 'delete' ? 'error' : 'default'} /></TableCell>
+        <TableCell>{log.user?.name || 'સિસ્ટમ'}</TableCell>
+        <TableCell><Chip label={getActionLabel(log.action)} size="small" color={log.action === 'create' ? 'success' : log.action === 'delete' ? 'error' : 'default'} /></TableCell>
         <TableCell>{displayName}</TableCell>
       </TableRow>
       <TableRow>
@@ -225,7 +234,7 @@ const LogEntryRow = ({ log }) => {
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ m: 1, p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)', borderRadius: 2 }}>
               <Typography variant="h6" gutterBottom component="div" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-                Changes
+                ફેરફારો
               </Typography>
               <ChangesDisplay changes={log.changes} />
             </Box>
@@ -237,7 +246,7 @@ const LogEntryRow = ({ log }) => {
 };
 
 
-// --- Main Audit Logs Page Component (UNCHANGED) ---
+// --- Main Audit Logs Page Component ---
 
 const AuditLogsPage = () => {
   const [logs, setLogs] = useState([]);
@@ -305,14 +314,14 @@ const AuditLogsPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
-        <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>ઑડિટ લોગ્સ</Typography>
+        <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>વિનંતી પૃષ્ઠ</Typography>
         
         <Paper sx={{ p: 2, mb: 2, borderRadius: 3 }}>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
                 <TextField
                     fullWidth
                     variant="outlined"
-                    placeholder="Search by user, action, or audit #"
+                    placeholder="વપરાશકર્તા, ક્રિયા, અથવા ઓડિટ # દ્વારા શોધો"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && fetchLogs()}
@@ -321,19 +330,26 @@ const AuditLogsPage = () => {
                         endAdornment: searchTerm && <IconButton size="small" onClick={() => setSearchTerm('')}><Close fontSize="small" /></IconButton>
                     }}
                 />
-                <FormControl fullWidth><InputLabel>Action</InputLabel>
-                    <Select name="action" value={filters.action} label="Action" onChange={handleFilterChange}>
-                        <MenuItem value="">All Actions</MenuItem><MenuItem value="create">Create</MenuItem><MenuItem value="update">Update</MenuItem><MenuItem value="delete">Delete</MenuItem>
+                <FormControl fullWidth><InputLabel>ક્રિયા</InputLabel>
+                    <Select name="action" value={filters.action} label="ક્રિયા" onChange={handleFilterChange}>
+                        <MenuItem value="">બધી ક્રિયાઓ</MenuItem>
+                        <MenuItem value="create">બનાવ્યું</MenuItem>
+                        <MenuItem value="update">અપડેટ</MenuItem>
+                        <MenuItem value="delete">કાઢી નાખ્યું</MenuItem>
                     </Select>
                 </FormControl>
-                <FormControl fullWidth><InputLabel>Entity Type</InputLabel>
-                    <Select name="entityType" value={filters.entityType} label="Entity Type" onChange={handleFilterChange}>
-                        <MenuItem value="">All Entities</MenuItem><MenuItem value="Member">Member</MenuItem><MenuItem value="Request">Request</MenuItem><MenuItem value="Zone">Zone</MenuItem><MenuItem value="User">User</MenuItem>
+                <FormControl fullWidth><InputLabel>એન્ટિટી પ્રકાર</InputLabel>
+                    <Select name="entityType" value={filters.entityType} label="એન્ટિટી પ્રકાર" onChange={handleFilterChange}>
+                        <MenuItem value="">બધી એન્ટિટીઓ</MenuItem>
+                        <MenuItem value="Member">સભ્ય</MenuItem>
+                        <MenuItem value="Request">વિનંતી</MenuItem>
+                        <MenuItem value="Zone">ઝોન</MenuItem>
+                        <MenuItem value="User">વપરાશકર્તા</MenuItem>
                     </Select>
                 </FormControl>
                 <Stack direction="row" spacing={1}>
-                    <Button variant="contained" onClick={fetchLogs} startIcon={<Refresh />}>Refresh</Button>
-                    <Button variant="outlined" color="success" onClick={handleExport} startIcon={<Download />}>Export</Button>
+                    <Button variant="contained" onClick={fetchLogs} startIcon={<Refresh />}>તાજું કરો</Button>
+                    <Button variant="outlined" color="success" onClick={handleExport} startIcon={<Download />}>નિકાસ કરો</Button>
                 </Stack>
             </Stack>
         </Paper>
@@ -343,11 +359,11 @@ const AuditLogsPage = () => {
                 <TableHead>
                     <TableRow>
                         <TableCell /> {/* Empty cell for expand icon */}
-                        <TableCell>Audit #</TableCell>
-                        <TableCell>Timestamp</TableCell>
-                        <TableCell>User</TableCell>
-                        <TableCell>Action</TableCell>
-                        <TableCell>Entity / Member</TableCell>
+                        <TableCell>વિનંતી નંબર</TableCell>
+                        <TableCell>સમય</TableCell>
+                        <TableCell>વપરાશકર્તા</TableCell>
+                        <TableCell>ક્રિયા</TableCell>
+                        <TableCell>એન્ટિટી / સભ્ય</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
@@ -371,6 +387,8 @@ const AuditLogsPage = () => {
                 onPageChange={(e, newPage) => setPage(newPage)}
                 onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
                 rowsPerPageOptions={[10, 25, 50]}
+                labelRowsPerPage="પ્રતિ પૃષ્ઠ પંક્તિઓ:"
+                labelDisplayedRows={({ from, to, count }) => `${from}–${to} માંથી ${count !== -1 ? count : `${to} થી વધુ`}`}
             />
         </TableContainer>
     </Container>

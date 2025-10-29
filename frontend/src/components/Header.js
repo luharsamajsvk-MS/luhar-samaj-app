@@ -36,7 +36,7 @@ const Header = () => {
     { text: 'સભ્યો', path: '/members' },
     { text: 'ઝોન', path: '/zones' },
     { text: 'વિનંતીઓ', path: '/requests' },
-    { text: 'ઑડિટ લોગ્સ', path: '/audit-logs' },
+    { text: 'વાઉચર નંબર', path: '/audit-logs' },
   ];
 
   const guestMenu = [{ text: 'હોમ', path: '/' }];
