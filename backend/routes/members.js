@@ -4,11 +4,10 @@ const auth = require("../middleware/auth");
 const Member = require("../models/Member");
 const Zone = require("../models/Zone");
 const mongoose = require("mongoose");
-const { createAudit } = require("../services/auditService"); 
+const { createAudit } = require("../services/auditService");
 const { generateCard } = require("../services/pdf-service");
 
 // ----------------- Helper Functions -----------------
-// ... (keep all helper functions: toDateOrNull, calcAgeFromDOB, normalizeFamilyMembers, sendHtmlResponse)
 function toDateOrNull(v) {
   if (!v) return null;
   try {
@@ -26,6 +25,15 @@ function calcAgeFromDOB(dob) {
   const m = today.getMonth() - dob.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
   return age;
+}
+
+// ✅ HELPER: Get end of the year from a date
+function getValidityEnd(date) {
+  const d = toDateOrNull(date);
+  if (!d) {
+    return new Date(new Date().getFullYear(), 11, 31, 23, 59, 59);
+  }
+  return new Date(d.getFullYear(), 11, 31, 23, 59, 59);
 }
 
 function normalizeFamilyMembers(input) {
@@ -117,7 +125,7 @@ function sendHtmlResponse(res, statusCode, title, bodyContent) {
 // GET all (active) members
 router.get("/", auth, async (req, res) => {
   try {
-    const members = await Member.find({ isDeleted: { $ne: true } }) // ✅ MODIFIED
+    const members = await Member.find({ isDeleted: { $ne: true } })
       .populate("zone")
       .populate("createdBy", "name email");
     res.json(members);
@@ -127,53 +135,54 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// ✅ --- NEW ROUTE: GET all DELETED members ---
+// GET all DELETED members
 router.get("/deleted", auth, async (req, res) => {
   try {
-    const members = await Member.find({ isDeleted: true }) // ✅ NEW
+    const members = await Member.find({ isDeleted: true })
       .populate("zone")
       .populate("createdBy", "name email");
     res.json(members);
-  } catch (err) {
+  } catch (err)
+    {
     console.error("GET /members/deleted error:", err);
     res.status(500).json({ error: "Failed to fetch deleted members" });
   }
 });
 
-
 // CREATE member
 router.post("/", auth, async (req, res) => {
   try {
     const {
-      head, 
+      head,
       rationNo,
       uniqueNumber,
       address,
       city,
       mobile,
-      additionalMobiles, 
+      additionalMobiles,
       pincode,
       zone,
       familyMembers,
-      issueDate 
+      issueDate,
     } = req.body;
 
-    // Validate zone
     const zoneDoc = await Zone.findById(zone);
     if (!zoneDoc) return res.status(400).json({ error: "Invalid zone ID" });
 
-    // Validate uniqueNumber
     let parsedUnique = null;
     if (uniqueNumber) {
-        parsedUnique = parseInt(uniqueNumber, 10);
-        // ✅ MODIFIED: Check only against non-deleted members
-        const existing = await Member.findOne({ uniqueNumber: parsedUnique, isDeleted: { $ne: true } });
-        if (existing) {
-            return res.status(400).json({ error: `Unique Number ${parsedUnique} is already assigned.` });
-        }
+      parsedUnique = parseInt(uniqueNumber, 10);
+      const existing = await Member.findOne({ uniqueNumber: parsedUnique, isDeleted: { $ne: true } });
+      if (existing) {
+        return res.status(400).json({ error: `Unique Number ${parsedUnique} is already assigned.` });
+      }
     }
-    
+
     const headBirthdate = toDateOrNull(head.birthdate);
+    
+    // ✅ AUTOMATIC VALIDITY LOGIC
+    const finalIssueDate = toDateOrNull(issueDate) || new Date();
+    const validityEnd = getValidityEnd(finalIssueDate); // Calculate end of year
 
     const member = new Member({
       head: {
@@ -185,15 +194,16 @@ router.post("/", auth, async (req, res) => {
       rationNo,
       uniqueNumber: parsedUnique,
       address,
-      city, 
+      city,
       mobile,
       additionalMobiles: additionalMobiles || [],
       pincode,
       zone,
       familyMembers: normalizeFamilyMembers(familyMembers),
       createdBy: req.user?.id,
-      issueDate: toDateOrNull(issueDate) || new Date(), 
-      isDeleted: false, // Explicitly set
+      issueDate: finalIssueDate,
+      isDeleted: false,
+      membershipValidUntil: validityEnd, // Save calculated validity
     });
 
     await member.save();
@@ -222,31 +232,30 @@ router.put("/:id", auth, async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id))
       return res.status(400).json({ error: "Invalid member ID format" });
 
-    // ✅ MODIFIED: Ensure we are not updating a deleted member
     const beforeUpdate = await Member.findOne({ _id: id, isDeleted: { $ne: true } }).lean();
     if (!beforeUpdate) return res.status(404).json({ error: "Member not found or has been deleted" });
 
-    const {
-      head,
-      familyMembers,
-    } = req.body;
+    const { head, familyMembers } = req.body;
+    const updateData = { ...req.body };
 
-    const updateData = { ...req.body }; 
-    
     if (head && head.birthdate) {
-        const headBirthdate = toDateOrNull(head.birthdate);
-        updateData.head.age = calcAgeFromDOB(headBirthdate);
-    }
-    
-    if (familyMembers) {
-        updateData.familyMembers = normalizeFamilyMembers(familyMembers);
+      const headBirthdate = toDateOrNull(head.birthdate);
+      updateData.head.age = calcAgeFromDOB(headBirthdate);
     }
 
-    if (updateData.hasOwnProperty('issueDate')) {
-        updateData.issueDate = toDateOrNull(updateData.issueDate);
+    if (familyMembers) {
+      updateData.familyMembers = normalizeFamilyMembers(familyMembers);
     }
-    
-    // Ensure isDeleted is not accidentally modified here
+
+    // ✅ AUTOMATIC VALIDITY LOGIC ON UPDATE
+    if (updateData.hasOwnProperty("issueDate")) {
+      const newIssueDate = toDateOrNull(updateData.issueDate);
+      updateData.issueDate = newIssueDate;
+      updateData.membershipValidUntil = getValidityEnd(newIssueDate);
+    } else {
+      delete updateData.membershipValidUntil;
+    }
+
     delete updateData.isDeleted;
     delete updateData.deletedAt;
 
@@ -270,7 +279,7 @@ router.put("/:id", auth, async (req, res) => {
   }
 });
 
-// ✅ MODIFIED: SOFT DELETE member
+// SOFT DELETE member
 router.delete("/:id", auth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -279,23 +288,22 @@ router.delete("/:id", auth, async (req, res) => {
 
     const beforeDelete = await Member.findById(id).lean();
     if (!beforeDelete || beforeDelete.isDeleted) {
-        return res.status(404).json({ error: "Member not found" });
+      return res.status(404).json({ error: "Member not found" });
     }
 
-    // ✅ MODIFIED: Perform soft delete instead of permanent delete
     const softDeletedMember = await Member.findByIdAndUpdate(
-        id, 
-        { isDeleted: true, deletedAt: new Date() },
-        { new: true }
+      id,
+      { isDeleted: true, deletedAt: new Date() },
+      { new: true }
     );
 
     await createAudit({
-      action: "delete", // The action is still 'delete' from the user's perspective
+      action: "delete",
       entityType: "Member",
       entityId: id,
       memberId: id,
       before: beforeDelete,
-      after: softDeletedMember.toObject(), // Log the state *after* soft delete
+      after: softDeletedMember.toObject(),
       req,
     });
 
@@ -306,7 +314,7 @@ router.delete("/:id", auth, async (req, res) => {
   }
 });
 
-// ✅ --- NEW ROUTE: RESTORE a deleted member ---
+// RESTORE a deleted member
 router.post("/:id/restore", auth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -316,17 +324,18 @@ router.post("/:id/restore", auth, async (req, res) => {
     const beforeRestore = await Member.findById(id).lean();
     if (!beforeRestore) return res.status(404).json({ error: "Member not found" });
     if (!beforeRestore.isDeleted) return res.status(400).json({ error: "Member is not deleted" });
-    
-    // ✅ MODIFIED: Check for uniqueNumber conflicts before restoring
+
     if (beforeRestore.uniqueNumber) {
-        const existing = await Member.findOne({
-            uniqueNumber: beforeRestore.uniqueNumber,
-            isDeleted: { $ne: true },
-            _id: { $ne: id }
+      const existing = await Member.findOne({
+        uniqueNumber: beforeRestore.uniqueNumber,
+        isDeleted: { $ne: true },
+        _id: { $ne: id },
+      });
+      if (existing) {
+        return res.status(400).json({
+          error: `Cannot restore: Unique Number ${beforeRestore.uniqueNumber} is now assigned to another active member.`,
         });
-        if (existing) {
-            return res.status(400).json({ error: `Cannot restore: Unique Number ${beforeRestore.uniqueNumber} is now assigned to another active member.` });
-        }
+      }
     }
 
     const restoredMember = await Member.findByIdAndUpdate(
@@ -346,81 +355,103 @@ router.post("/:id/restore", auth, async (req, res) => {
     });
 
     res.json({ message: "Member restored successfully" });
-
   } catch (err) {
     console.error("POST /members/:id/restore error:", err);
     res.status(500).json({ error: err.message || "Failed to restore member" });
   }
 });
 
-
-// ✅ UPDATED VERIFY ROUTE
+// ✅ UPDATED VERIFY ROUTE (FIXED)
 router.get("/verify/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    let query = [];
+    let queryParts = [];
 
-    // ✅ MODIFIED: All queries must also check that member is not deleted
+    const baseQuery = { isDeleted: { $ne: true } };
+
     if (!isNaN(parseInt(id, 10))) {
-      query.push({ uniqueNumber: parseInt(id, 10), isDeleted: { $ne: true } });
+      queryParts.push({ uniqueNumber: parseInt(id, 10), ...baseQuery });
     }
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query.push({ _id: id, isDeleted: { $ne: true } });
+      queryParts.push({ _id: id, ...baseQuery });
     }
-    
-    if (query.length === 0) {
-      // ... (error handling as before)
+
+    if (queryParts.length === 0) {
       const errorData = { valid: false, message: "Invalid identifier provided." };
       if (req.accepts("html")) {
-        const body = `...`; // HTML error
+        const body = `<div class="card error"><h2>અમાન્ય આઈડી</h2><p>તમે અમાન્ય આઈડી પ્રદાન કર્યું છે.</p></div>`;
         return sendHtmlResponse(res, 400, "અમાન્ય આઈડી", body);
       } else {
         return res.status(400).json(errorData);
       }
     }
 
-    const member = await Member.findOne({ $or: query }).populate("zone");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    if (!member) { // This now correctly handles 'not found' or 'is deleted'
+    // ✅ --- FIX: Removed 'null' check ---
+    // આ ક્વેરી ફક્ત એવા મેમ્બરને જ શોધશે જેમની વેલિડિટી ડેટ
+    // આજની અથવા ભવિષ્યની છે. 'null' વેલ્યુ વાળા મેમ્બર (જૂના) હવે 'અમાન્ય' ગણાશે.
+    const member = await Member.findOne({
+      $or: queryParts, // Find by ID or UniqueNumber (and isNotDeleted)
+      membershipValidUntil: { $gte: today },
+    }).populate("zone");
+
+    if (!member) {
+      // This fails if:
+      // 1. Member doesn't exist.
+      // 2. Member is deleted.
+      // 3. Member has an *expired* date (e.g., last year).
+      // 4. Member has a 'null' date (old "lifetime" member).
       const errorData = { valid: false, message: "આ સભ્ય કાર્ડ અમાન્ય છે" };
-      
+
       if (req.accepts("html")) {
-         const body = `...`; // HTML error
+        const body = `<div class="card error"><h2>અમાન્ય કાર્ડ</h2><p>આ સભ્ય કાર્ડ અમાન્ય છે અથવા રિન્યુ કરવાની જરૂર છે.</p></div>`;
         return sendHtmlResponse(res, 404, "અમાન્ય કાર્ડ", body);
       } else {
         return res.status(404).json(errorData);
       }
     }
 
-    // ... (success response as before)
-    const issueDate = member.issueDate
-      ? member.issueDate.toISOString().split("T")[0]
-      : "N/A";
-      
+    // ... (success response)
+    const issueDate = member.issueDate ? member.issueDate.toISOString().split("T")[0] : "N/A";
+
+    // ✅ --- FIX: Removed 'Lifetime' logic ---
+    // જો મેમ્બર મળ્યો છે, તો તેની પાસે 100% વેલિડ ડેટ હશે જ.
+    const validUntilDate = member.membershipValidUntil.toISOString().split("T")[0];
+
     const successData = {
       valid: true,
       message: "આ સભ્ય કાર્ડ માન્ય છે",
       trust: "લુહાર સમાજ સાવરકુંડલા ટ્રસ્ટ રજી નં. ૧૧૪૫ એ",
       dateOfIssue: issueDate,
+      validUntil: validUntilDate,
       સભ્યનં: member.uniqueNumber,
     };
-    
+
     if (req.accepts("html")) {
-      const body = `...`; // HTML success
+      const body = `
+        <div class="card success">
+          <h2>માન્ય કાર્ડ</h2>
+          <p>આ સભ્ય કાર્ડ માન્ય છે.</p>
+          <p class="data-item"><strong>ટ્રસ્ટ:</strong> ${successData.trust}</p>
+          <p class="data-item"><strong>સભ્ય નં:</strong> ${successData.સભ્યનં}</p>
+          <p class="data-item"><strong>ઇસ્યુ તારીખ:</strong> ${successData.dateOfIssue}</p>
+          <p class="data-item"><strong>આ તારીખ સુધી માન્ય:</strong> ${successData.validUntil}</p>
+        </div>
+      `;
       return sendHtmlResponse(res, 200, "માન્ય કાર્ડ", body);
     } else {
       return res.json(successData);
     }
-
   } catch (err) {
-    // ... (catch block as before)
     console.error("QR verify error:", err);
     const errorData = { valid: false, message: "સર્વર ભૂલ" };
     if (req.accepts("html")) {
-        const body = `...`; // HTML error
-        return sendHtmlResponse(res, 500, "સર્વર ભૂલ", body);
+      const body = `<div class="card error"><h2>સર્વર ભૂલ</h2><p>ચકાસણી કરતી વખતે સર્વર ભૂલ આવી.</p></div>`;
+      return sendHtmlResponse(res, 500, "સર્વર ભૂલ", body);
     } else {
-        return res.status(500).json(errorData);
+      return res.status(500).json(errorData);
     }
   }
 });
@@ -428,10 +459,9 @@ router.get("/verify/:id", async (req, res) => {
 // GENERATE PDF
 router.get("/:id/pdf", auth, async (req, res) => {
   try {
-    // ✅ MODIFIED: Check if member is deleted
     const member = await Member.findById(req.params.id);
     if (!member || member.isDeleted) {
-        return res.status(404).json({ error: "Member not found or has been deleted" });
+      return res.status(404).json({ error: "Member not found or has been deleted" });
     }
 
     const pdfBuffer = await generateCard(req.params.id);
