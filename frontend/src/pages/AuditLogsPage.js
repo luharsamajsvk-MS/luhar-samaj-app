@@ -37,27 +37,50 @@ import api from "../services/api";
 
 // --- Helper Components ---
 
+// ✅ MOVED: Helper to format date, e.g., "DD/MM/YYYY"
+const formatDate = (dateString) => {
+  if (!dateString) return 'ઉપલબ્ધ નથી';
+  try {
+    return new Date(dateString).toLocaleDateString('gu-IN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  } catch (e) {
+    return dateString; // fallback if date is invalid
+  }
+};
+
 /**
- * ✅ NEW: Helper component to display a list of family members with full details.
+ * ✅ NEW: Helper component to display head member details.
+ */
+const HeadDisplay = ({ head }) => {
+  if (!head || typeof head !== 'object') {
+    return <Typography variant="body2" color="text.secondary" component="span"><i>(ખાલી)</i></Typography>;
+  }
+
+  return (
+    <Box sx={{ p: 1, border: '1px solid rgba(0, 0, 0, 0.1)', borderRadius: 1, display: 'inline-block', minWidth: 200 }}>
+      <Typography variant="body2" component="span" sx={{ display: 'block' }}>
+        <strong>{head.name || 'નામ નથી'}</strong>
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pl: 1.5, mt: 0.5 }}>
+        જન્મ તારીખ: {formatDate(head.birthdate)} | 
+        ઉંમર: {head.age || 'ઉપલબ્ધ નથી'} | 
+        લિંગ: {head.gender || 'ઉપલબ્ધ નથી'}
+      </Typography>
+    </Box>
+  );
+};
+
+
+/**
+ * Helper component to display a list of family members with full details.
  */
 const FamilyMembersDisplay = ({ members }) => {
   if (!Array.isArray(members) || members.length === 0) {
     return <Typography variant="body2" color="text.secondary" component="span"><i>(ખાલી)</i></Typography>;
   }
-
-  // Helper to format date, e.g., "DD/MM/YYYY"
-  const formatDate = (dateString) => {
-    if (!dateString) return 'ઉપલબ્ધ નથી';
-    try {
-      return new Date(dateString).toLocaleDateString('gu-IN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch (e) {
-      return dateString; // fallback if date is invalid
-    }
-  };
 
   return (
     <Box component="ul" sx={{ m: 0, p: 0, pl: 2, listStyleType: 'decimal' }}>
@@ -68,7 +91,8 @@ const FamilyMembersDisplay = ({ members }) => {
             {` (${member.relation || 'ઉપલબ્ધ નથી'})`}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pl: 1.5 }}>
-            જન્મ તારીખ: {formatDate(member.birthDate)} | 
+            {/* ✅ FIXED: birthDate -> birthdate */}
+            જન્મ તારીખ: {formatDate(member.birthdate)} | 
             ઉંમર: {member.age || 'ઉપલબ્ધ નથી'} | 
             લિંગ: {member.gender || 'ઉપલબ્ધ નથી'}
           </Typography>
@@ -80,8 +104,7 @@ const FamilyMembersDisplay = ({ members }) => {
 
 
 /**
- * ✅ UPDATED: Renders simple 'before' and 'after' values.
- * This is now a fallback for non-family-member fields.
+ * Renders simple 'before' and 'after' values.
  */
 const renderValue = (value) => {
   const chipStyles = { 
@@ -107,7 +130,7 @@ const renderValue = (value) => {
 };
 
 
-// ✅ UPDATED: This component now conditionally renders FamilyMembersDisplay.
+// ✅ UPDATED: This component now conditionally renders HeadDisplay and FamilyMembersDisplay.
 const ChangesDisplay = ({ changes }) => {
   if (!changes) {
     return <Typography variant="body2" color="text.secondary">કોઈ ફેરફારો નોંધાયેલા નથી.</Typography>;
@@ -141,7 +164,6 @@ const ChangesDisplay = ({ changes }) => {
               </TableCell>
               
               {/* --- THIS IS THE KEY CHANGE --- */}
-              {/* Check if this is the family members field */}
               {change.field === 'familyMembers' ? (
                 <>
                   <TableCell sx={{ textDecoration: 'line-through', verticalAlign: 'top' }}>
@@ -149,6 +171,15 @@ const ChangesDisplay = ({ changes }) => {
                   </TableCell>
                   <TableCell sx={{ verticalAlign: 'top' }}>
                     <FamilyMembersDisplay members={change.after} />
+                  </TableCell>
+                </>
+              ) : change.field === 'head' ? ( // ✅ NEW: Added 'head' field check
+                <>
+                  <TableCell sx={{ textDecoration: 'line-through', verticalAlign: 'top' }}>
+                    <HeadDisplay head={change.before} />
+                  </TableCell>
+                  <TableCell sx={{ verticalAlign: 'top' }}>
+                    <HeadDisplay head={change.after} />
                   </TableCell>
                 </>
               ) : (
@@ -385,7 +416,7 @@ const AuditLogsPage = () => {
                 page={page}
                 rowsPerPage={rowsPerPage}
                 onPageChange={(e, newPage) => setPage(newPage)}
-                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.guit, 10)); setPage(0); }}
                 rowsPerPageOptions={[10, 25, 50]}
                 labelRowsPerPage="પ્રતિ પૃષ્ઠ પંક્તિઓ:"
                 labelDisplayedRows={({ from, to, count }) => `${from}–${to} માંથી ${count !== -1 ? count : `${to} થી વધુ`}`}

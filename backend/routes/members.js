@@ -209,13 +209,14 @@ router.post("/", auth, async (req, res) => {
     await member.save();
 
     await createAudit({
-      action: "create",
-      entityType: "Member",
-      entityId: member._id,
-      memberId: member._id,
-      after: member.toObject(),
-      req,
-    });
+  action: "create",
+  entityType: "Member",
+  entityId: member._id,
+  memberId: member._id,
+  after: member.toObject(),
+  req,
+  requestNumber: req.body.requestNumber, // <-- MAKE SURE THIS LINE IS HERE
+});
 
     const populated = await Member.findById(member._id).populate("zone");
     res.status(201).json({ member: populated });
@@ -262,14 +263,15 @@ router.put("/:id", auth, async (req, res) => {
     const updatedMember = await Member.findByIdAndUpdate(id, updateData, { new: true });
 
     await createAudit({
-      action: "update",
-      entityType: "Member",
-      entityId: id,
-      memberId: id,
-      before: beforeUpdate,
-      after: updatedMember.toObject(),
-      req,
-    });
+  action: "update",
+  entityType: "Member",
+  entityId: id,
+  memberId: id,
+  before: beforeUpdate,
+  after: updatedMember.toObject(),
+  req,
+  requestNumber: req.body.requestNumber, // <-- MAKE SURE THIS LINE IS HERE
+});
 
     const populated = await Member.findById(id).populate("zone");
     res.json({ member: populated });

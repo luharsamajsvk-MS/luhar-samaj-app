@@ -4,10 +4,11 @@ const auditLogSchema = new mongoose.Schema(
   {
     // 🔹 Renamed from auditNumber to requestNumber
     requestNumber: {
-      type: Number,
-      unique: true,
-      index: true,
-    },
+  type: Number,
+  unique: true,
+  index: true,
+  sparse: true, // <-- ADD THIS LINE
+},
 
     action: {
       type: String,
@@ -60,22 +61,6 @@ auditLogSchema.index({ entityType: 1, entityId: 1 });
 auditLogSchema.index({ "user.id": 1 });
 auditLogSchema.index({ timestamp: -1 });
 
-// 🔹 Auto-increment requestNumber
-auditLogSchema.pre("save", async function (next) {
-  if (this.requestNumber) return next(); // already set
 
-  try {
-    const last = await this.constructor
-      .findOne({})
-      .sort({ requestNumber: -1 }) // 🔹 Updated to sort by requestNumber
-      .select("requestNumber")     // 🔹 Updated to select requestNumber
-      .lean();
-
-    this.requestNumber = last ? last.requestNumber + 1 : 1; // 🔹 Updated to set requestNumber
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
 
 module.exports = mongoose.model("AuditLog", auditLogSchema);
