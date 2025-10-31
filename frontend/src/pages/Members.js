@@ -108,16 +108,16 @@ export default function Members() {
         setFilteredMembers(results);
     }, [searchTerm, members]);
 
-    // Statistics for the FILTERED view (Top bar)
+    // Statistics for the FILTERED view (Top bar) - This still counts EVERYONE (head + family)
     const stats = useMemo(() => {
         const totalFamilies = filteredMembers.length;
         let totalPeople = 0;
         let maleCount = 0;
         let femaleCount = 0;
         filteredMembers.forEach(member => {
-            totalPeople += 1;
-            if (member.head?.gender === 'male') maleCount++;
-            if (member.head?.gender === 'female') femaleCount++;
+            // totalPeople += 1;
+            // if (member.head?.gender === 'male') maleCount++;
+            // if (member.head?.gender === 'female') femaleCount++;
             if (member.familyMembers && member.familyMembers.length > 0) {
                 totalPeople += member.familyMembers.length;
                 member.familyMembers.forEach(fm => {
@@ -129,16 +129,16 @@ export default function Members() {
         return { totalFamilies, totalPeople, maleCount, femaleCount };
     }, [filteredMembers]);
 
-    // Statistics for the EXCEL EXPORT (all members)
+    // Statistics for the EXCEL EXPORT (all members) - This still counts EVERYONE (head + family)
     const exportStats = useMemo(() => {
         const totalFamilies = members.length;
         let totalPeople = 0;
         let maleCount = 0;
         let femaleCount = 0;
         members.forEach(member => {
-            totalPeople += 1;
-            if (member.head?.gender === 'male') maleCount++;
-            if (member.head?.gender === 'female') femaleCount++;
+            // totalPeople += 1;
+            // if (member.head?.gender === 'male') maleCount++;
+            // if (member.head?.gender === 'female') femaleCount++;
             if (member.familyMembers && member.familyMembers.length > 0) {
                 totalPeople += member.familyMembers.length;
                 member.familyMembers.forEach(fm => {
@@ -177,17 +177,17 @@ export default function Members() {
             const ws_stats = XLSX.utils.json_to_sheet(statsData);
             const memberData = [];
             members.forEach(family => {
-                memberData.push({
-                    "યુનિક નંબર": family.uniqueNumber,
-                    "રેશન કાર્ડ નંબર": family.rationNo,
-                    "નામ": family.head?.name,
-                    "જાતિ": family.head?.gender,
-                    "ઉંમર": family.head?.age,
-                    "સંબંધ": "પોતે (કુટુંબના વડા)",
-                    "મોબાઈલ": family.mobile,
-                    "સરનામું": family.address,
-                    "ઝોન": family.zone?.name
-                });
+                // memberData.push({
+                //     "યુનિક નંબર": family.uniqueNumber,
+                //     "રેશન કાર્ડ નંબર": family.rationNo,
+                //     "નામ": family.head?.name,
+                //     "જાતિ": family.head?.gender,
+                //     "ઉંમર": family.head?.age,
+                //     "સંબંધ": "પોતે (કુટુંબના વડા)",
+                //     "મોબાઈલ": family.mobile,
+                //     "સરનામું": family.address,
+                //     "ઝોન": family.zone?.name
+                // });
                 family.familyMembers?.forEach(member => {
                     memberData.push({
                         "યુનિક નંબર": family.uniqueNumber,
@@ -356,15 +356,23 @@ export default function Members() {
                                     const isSelected = selectedMemberId === member._id;
                                     const isGenerating = generatingPdfId === member._id;
 
+                                    // 🔹 MODIFIED LOGIC START 🔹
+                                    // All counts (male, female, total) now *only* refer to familyMembers, excluding the head.
                                     let maleCount = 0;
                                     let femaleCount = 0;
-                                    if (member.head?.gender === 'male') maleCount++;
-                                    if (member.head?.gender === 'female') femaleCount++;
+
                                     member.familyMembers?.forEach(fm => {
-                                        if (fm.gender === 'male') maleCount++;
-                                        if (fm.gender === 'female') femaleCount++;
+                                        if (fm.gender === 'male') {
+                                            maleCount++;
+                                        }
+                                        if (fm.gender === 'female') {
+                                            femaleCount++;
+                                        }
                                     });
+
+                                    // This is the total of *only* family members.
                                     const totalFamily = maleCount + femaleCount;
+                                    // 🔹 MODIFIED LOGIC END 🔹
 
                                     return (
                                         <React.Fragment key={member._id}>
@@ -562,9 +570,9 @@ export default function Members() {
                 <DialogTitle>{currentMember ? 'સભ્ય સંપાદિત કરો' : 'નવો સભ્ય ઉમેરો'}</DialogTitle>
                 <DialogContent dividers>
                     {/* 🔹 NOTE: You MUST update MemberForm.js 
-                      It now needs to:
-                      1. Have a new TextField for 'Request Number'.
-                      2. Call onSubmit with TWO arguments: onSubmit(formData, requestNumber).
+                        It now needs to:
+                        1. Have a new TextField for 'Request Number'.
+                        2. Call onSubmit with TWO arguments: onSubmit(formData, requestNumber).
                     */}
                     <MemberForm onSubmit={handleSubmit} memberToEdit={currentMember} loading={false} error={null} />
                 </DialogContent>

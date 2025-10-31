@@ -84,37 +84,40 @@ async function generateCard(memberId) {
     const registrationYear = member.createdAt ? new Date(member.createdAt).getFullYear() : '';
     doc.font('bold').fontSize(35).fillColor('white').text(registrationYear, 780, 25);
 
-    // --- MODIFICATION START ---
-    // Manually render Zone (Blue) / Unique Number (Red) to be centered
+// --- MODIFICATION START ---
+    // Manually render Unique Number (Red) / Zone (Blue) to be centered
     
     // 1. Define the parts and box
-    const zonePart = `${member.zone?.number || ''} / `;
-    const uniquePart = `${member.uniqueNumber || member.cardId || '---'}`;
-    const x1 = 590, y1 = 491, x2 = 885, y2 = 535; // The box to center within
+    // Swapped order and moved the " / "
+    const uniquePart = `${member.uniqueNumber || member.cardId || '---'} / `;
+    const zonePart = `${member.zone?.number || ''}`;
+    
+    const x1 = 650, y1 = 491, x2 = 885, y2 = 535; // The box to center within
     const boxWidth = x2 - x1;
     const boxHeight = y2 - y1;
     let fontSize = 36; // Initial font size
     doc.font('bold');
 
     // 2. Shrink font size if necessary to fit box
-    let totalWidth = doc.fontSize(fontSize).widthOfString(zonePart) + doc.widthOfString(uniquePart);
+    let totalWidth = doc.fontSize(fontSize).widthOfString(uniquePart) + doc.widthOfString(zonePart);
     while (totalWidth > boxWidth && fontSize > 6) {
       fontSize -= 1;
-      totalWidth = doc.fontSize(fontSize).widthOfString(zonePart) + doc.widthOfString(uniquePart);
+      totalWidth = doc.fontSize(fontSize).widthOfString(uniquePart) + doc.widthOfString(zonePart);
     }
 
     // 3. Calculate final positions
     const startX = x1 + (boxWidth - totalWidth) / 2; // Horizontal center
     const finalY = y1 + (boxHeight - fontSize) / 2; // Vertical center
-    const zonePartWidth = doc.fontSize(fontSize).widthOfString(zonePart);
+    // Get the width of the *first* part (now uniquePart)
+    const uniquePartWidth = doc.fontSize(fontSize).widthOfString(uniquePart); 
 
-    // 4. Render the two parts with different colors
-    doc.fillColor('blue').text(zonePart, startX, finalY, {
+    // 4. Render the two parts with different colors (interchanged)
+    doc.fillColor('red').text(uniquePart, startX, finalY, { // <-- Changed to red and uniquePart
       lineBreak: false,
-      continued: true // Use continued: true for the first part
+      continued: true 
     });
     
-    doc.fillColor('red').text(uniquePart, startX + zonePartWidth, finalY, {
+    doc.fillColor('blue').text(zonePart, startX + uniquePartWidth, finalY, { // <-- Changed to blue, zonePart, and uniquePartWidth
       lineBreak: false
     });
     // --- MODIFICATION END ---
