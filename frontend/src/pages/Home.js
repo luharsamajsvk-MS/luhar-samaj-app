@@ -10,16 +10,26 @@ import {
   CardContent,
 } from "@mui/material";
 import { Link } from "react-router-dom";
-import logo from "../assets/images/stamp1.png"; // 👈 તમારો લોગો
+import { Helmet } from "react-helmet-async"; // ✅ --- IMPORT HELMET ---
+import logo from "../assets/images/stamp1.png";
 
 export default function Home() {
   return (
     <Container maxWidth="lg" sx={{ mt: 6, textAlign: "center" }}>
+      {/* ✅ --- SEO: ADD PAGE-SPECIFIC HEAD TAGS --- */}
+      <Helmet>
+        <title>હોમ | શ્રી સમસ્ત લુહાર સમાજ સાવરકુંડલા (LGS-SK)</title>
+        <meta
+          name="description"
+          content="શ્રી સમસ્ત લુહાર સમાજ, સાવરકુંડલા (લુહાર વાડી) માં આપનું સ્વાગત છે. સભ્યોની માહિતી, નોંધણી અને સામાજિક અપડેટ્સ અહીં મેળવો."
+        />
+      </Helmet>
+      
       {/* Hero Section */}
       <Box sx={{ mb: 8 }}>
         <img
           src={logo}
-          alt="સમાજ લોગો"
+          alt="શ્રી સમસ્ત લુહાર સમાજ સાવરકુંડલા લોગો" // ✅ SEO: More descriptive alt text
           style={{
             width: 130,
             marginBottom: 20,
@@ -29,6 +39,7 @@ export default function Home() {
 
         <Typography
           variant="h3"
+          component="h1" // ✅ SEO: Use <h1> for the main page heading
           gutterBottom
           sx={{
             fontWeight: "bold",
@@ -41,6 +52,7 @@ export default function Home() {
 
         <Typography
           variant="h6"
+          component="h2" // ✅ SEO: Use <h2> for the subheading
           sx={{
             color: "text.secondary",
             mb: 5,
@@ -50,7 +62,7 @@ export default function Home() {
           મેનેજમેન્ટ અને ઓળખપત્ર બનાવવાની વ્યવસ્થા
         </Typography>
 
-        {/* Action Buttons */}
+        {/* Action Buttons (Unchanged) */}
         <Box
           sx={{
             display: "flex",
@@ -79,7 +91,6 @@ export default function Home() {
           >
             LOGIN
           </Button>
-
           <Button
             variant="outlined"
             size="large"
@@ -137,6 +148,7 @@ export default function Home() {
               <CardContent>
                 <Typography
                   variant="h6"
+                  component="h3" // ✅ SEO: Use <h3> for section titles
                   sx={{
                     fontWeight: "bold",
                     mb: 1.5,
@@ -157,7 +169,7 @@ export default function Home() {
         ))}
       </Grid>
 
-      {/* Footer */}
+      {/* Footer (Unchanged) */}
       <Box
         sx={{
           py: 3,

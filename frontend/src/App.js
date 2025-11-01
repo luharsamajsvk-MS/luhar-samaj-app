@@ -4,6 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
+import { HelmetProvider } from 'react-helmet-async'; // ✅ --- IMPORT HELMETPROVIDER ---
 
 import Header from './components/Header';
 import Login from './pages/Login';
@@ -14,16 +15,15 @@ import Home from './pages/Home';
 import RequestForm from './pages/RequestForm';
 import Requests from './pages/Requests';
 import AuditLogsPage from "./pages/AuditLogsPage";
-import DeletedMembers from "./pages/DeletedMembers"; // ✅ --- IMPORT NEW PAGE ---
+import DeletedMembers from "./pages/DeletedMembers"; 
 
-// Theme config with responsive typography
+// Theme config (assumed)
 const theme = createTheme({
-  // ... (theme config as before)
+  // ... your theme config
 });
 
-// 🔒 PrivateRoute wrapper (admin-only by default)
+// PrivateRoute wrapper (unchanged)
 const PrivateRoute = ({ children }) => {
-  // ... (PrivateRoute logic as before)
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('userRole');
 
@@ -40,85 +40,86 @@ const PrivateRoute = ({ children }) => {
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router>
-        <Header />
+    // ✅ --- WRAP APP IN HELMETPROVIDER ---
+    <HelmetProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
+          <Header />
 
-        <Box
-          component="main"
-          sx={{
-            flexGrow: 1,
-            py: 3,
-            px: { xs: 1, sm: 2, md: 3 },
-          }}
-        >
-          <Container maxWidth="xl">
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/request" element={<RequestForm />} />
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              py: 3,
+              px: { xs: 1, sm: 2, md: 3 },
+            }}
+          >
+            <Container maxWidth="xl">
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/request" element={<RequestForm />} />
 
-              {/* Admin-only routes */}
-              <Route
-                path="/dashboard"
-                element={
-                  <PrivateRoute>
-                    <Dashboard />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/members"
-                element={
-                  <PrivateRoute>
-                    <Members />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/zones"
-                element={
-                  <PrivateRoute>
-                    <Zones />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/requests"
-                element={
-                  <PrivateRoute>
-                    <Requests />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/audit-logs"
-                element={
-                  <PrivateRoute>
-                    <AuditLogsPage />
-                  </PrivateRoute>
-                }
-              />
+                {/* Admin-only routes */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <PrivateRoute>
+                      <Dashboard />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/members"
+                  element={
+                    <PrivateRoute>
+                      <Members />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/zones"
+                  element={
+                    <PrivateRoute>
+                      <Zones />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/requests"
+                  element={
+                    <PrivateRoute>
+                      <Requests />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/audit-logs"
+                  element={
+                    <PrivateRoute>
+                      <AuditLogsPage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/deleted-members"
+                  element={
+                    <PrivateRoute>
+                      <DeletedMembers />
+                    </PrivateRoute>
+                  }
+                />
 
-              {/* ✅ --- ADD NEW ROUTE --- */}
-              <Route
-                path="/deleted-members"
-                element={
-                  <PrivateRoute>
-                    <DeletedMembers />
-                  </PrivateRoute>
-                }
-              />
-
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Container>
-        </Box>
-      </Router>
-    </ThemeProvider>
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Container>
+          </Box>
+        </Router>
+      </ThemeProvider>
+    </HelmetProvider>
   );
 }
 
