@@ -307,6 +307,8 @@ router.delete("/:id", auth, async (req, res) => {
       before: beforeDelete,
       after: softDeletedMember.toObject(),
       req,
+      // You could also add req.body.requestNumber here if you plan to
+      // send one from the frontend for deletions.
     });
 
     res.json({ message: "Member deleted successfully" });
@@ -354,6 +356,7 @@ router.post("/:id/restore", auth, async (req, res) => {
       before: beforeRestore,
       after: restoredMember.toObject(),
       req,
+      requestNumber: req.body.requestNumber, // <-- 🔻🔻 THIS IS THE FIX 🔻🔻
     });
 
     res.json({ message: "Member restored successfully" });

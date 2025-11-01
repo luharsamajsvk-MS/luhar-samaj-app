@@ -11,8 +11,9 @@ const {
     formatRequestsForExcel,
     formatAuditLogsForExcel,
 } = require('../services/excel-service');
+const mongoose = require('mongoose'); // Import mongoose
 
-// ... (The routes for /members, /requests, and /audit are correct and unchanged) ...
+// ... (The routes for /members and /requests are correct and unchanged) ...
 router.get('/members', auth, async (req, res) => {
     try {
         const members = await Member.find().populate('zone').lean();
@@ -41,15 +42,52 @@ router.get('/requests', auth, async (req, res) => {
     }
 });
 
+//
+// --- 🔻🔻 MODIFIED /audit ROUTE 🔻🔻 ---
+//
 router.get('/audit', auth, async (req, res) => {
     try {
-        const logs = await AuditLog.find()
+        // --- ADDED FILTER LOGIC ---
+        const { search, action, entityType } = req.query;
+        const query = {};
+
+        if (action) query.action = action;
+        if (entityType) query.entityType = entityType;
+
+        if (search) {
+            const searchRegex = { $regex: search, $options: 'i' };
+            const searchNum = parseInt(search, 10);
+            
+            const orQuery = [
+                { 'user.name': searchRegex },
+                { 'action': searchRegex },
+                { 'entityType': searchRegex },
+            ];
+
+            if (!isNaN(searchNum)) {
+                orQuery.push({ requestNumber: searchNum });
+            }
+            
+            // Add member search if it's a valid ObjectId
+            if (mongoose.Types.ObjectId.isValid(search)) {
+                orQuery.push({ memberId: search });
+                orQuery.push({ entityId: search });
+            }
+
+            query.$or = orQuery;
+        }
+        // --- END OF FILTER LOGIC ---
+
+        const logs = await AuditLog.find(query) // Apply the filter query
             .populate("memberId", "head.name uniqueNumber")
-            .populate("user.id", "name email")
+            .populate("user.id", "name email") // This populate is likely for user.id, not user.name
             .sort({ timestamp: -1 })
             .lean();
+            
         const formattedData = formatAuditLogsForExcel(logs);
         const buffer = generateExcelBuffer(formattedData, 'Audit Logs');
+        
+        // --- UPDATED FILENAME TO .xlsx ---
         res.setHeader('Content-Disposition', 'attachment; filename="audit_logs.xlsx"');
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.send(buffer);
@@ -58,7 +96,9 @@ router.get('/audit', auth, async (req, res) => {
         res.status(500).json({ error: 'Failed to export audit log data.' });
     }
 });
-
+//
+// --- 🔺🔺 END OF MODIFIED ROUTE 🔺🔺 ---
+//
 
 // ✅ **FIXED**: This route now safely encodes filenames with special characters.
 router.get('/zone/:zoneId', auth, async (req, res) => {

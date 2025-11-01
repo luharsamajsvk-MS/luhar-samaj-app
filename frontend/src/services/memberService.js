@@ -113,12 +113,13 @@ export const deleteMember = async (id) => {
   }
 };
 
-// ✅ --- NEW FUNCTION ---
+// ✅ --- 🔻 MODIFIED FUNCTION 🔻 ---
 // Restore a soft-deleted member
-export const restoreMember = async (id) => {
+export const restoreMember = async (id, requestNumber) => {
   try {
-    console.log(`♻️ [MemberService] Restoring member ID: ${id}`);
-    await api.post(`/members/${id}/restore`);
+    console.log(`♻️ [MemberService] Restoring member ID: ${id} with Request #: ${requestNumber}`);
+    // Pass the requestNumber in the body
+    await api.post(`/members/${id}/restore`, { requestNumber });
     console.log('✅ [MemberService] Member restored');
   } catch (error) {
     console.error(
@@ -128,6 +129,7 @@ export const restoreMember = async (id) => {
     throw error.response?.data?.error || 'Failed to restore member';
   }
 };
+// ✅ --- 🔺 END OF MODIFICATION 🔺 ---
 
 // Generate member card PDF
 export const generateMemberCardPDF = async (id) => {

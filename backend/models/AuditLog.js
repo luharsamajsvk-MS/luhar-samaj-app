@@ -4,16 +4,16 @@ const auditLogSchema = new mongoose.Schema(
   {
     // 🔹 Renamed from auditNumber to requestNumber
     requestNumber: {
-  type: Number,
-  unique: true,
-  index: true,
-  sparse: true, // <-- ADD THIS LINE
-},
+      type: Number,
+      // unique: true,  <-- REMOVED
+      // index: true,   <-- REMOVED
+      // sparse: true,  <-- REMOVED
+    },
 
     action: {
       type: String,
       required: true,
-      enum: ["create", "update", "delete"],
+      enum: ["create", "update", "delete", "restore"], // This is correct from last time
     },
     entityType: {
       type: String,
@@ -61,6 +61,20 @@ auditLogSchema.index({ entityType: 1, entityId: 1 });
 auditLogSchema.index({ "user.id": 1 });
 auditLogSchema.index({ timestamp: -1 });
 
-
+//
+// --- 🔻 ADD THIS INDEX 🔻 ---
+//
+// This creates a unique index *only* on documents where requestNumber is not null.
+// It allows any number of documents to have a null/missing requestNumber.
+auditLogSchema.index(
+  { requestNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { requestNumber: { $type: "number" } },
+  }
+);
+//
+// --- 🔺 END OF ADDITION 🔺 ---
+//
 
 module.exports = mongoose.model("AuditLog", auditLogSchema);

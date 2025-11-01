@@ -1,5 +1,5 @@
 // frontend/src/pages/DeletedMembers.js
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // <-- 'useMemo' removed from this line
 import {
     Container,
     TextField,
@@ -94,8 +94,25 @@ export default function DeletedMembers() {
     // --- Handlers ---
     const handleRestoreMember = async (memberId) => {
         if (!window.confirm('શું તમે આ સભ્યને પુનઃસ્થાપિત કરવા માંગો છો?')) return;
+        
+        // Ask for the request number manually
+        const requestNumberStr = window.prompt("કૃપા કરીને આ પુનઃસ્થાપિત કરવા માટે 'રિક્વેસ્ટ નંબર' દાખલ કરો:");
+        
+        if (requestNumberStr === null || requestNumberStr.trim() === "") {
+             // User cancelled or entered nothing
+             showSnackbar('પુનઃસ્થાપિત રદ કર્યું. રિક્વેસ્ટ નંબર જરૂરી છે.', 'warning');
+             return;
+        }
+
+        const requestNumber = parseInt(requestNumberStr, 10);
+        if (isNaN(requestNumber)) {
+            showSnackbar('અમાન્ય રિક્વેસ્ટ નંબર. કૃપા કરીને માત્ર નંબર દાખલ કરો.', 'error');
+            return;
+        }
+
         try {
-            await restoreMember(memberId);
+            // Pass the requestNumber to the service
+            await restoreMember(memberId, requestNumber);
             showSnackbar('સભ્ય સફળતાપૂર્વક પુનઃસ્થાપિત થયો', 'success');
             await loadMembers(); // Reload the list
         } catch (err) {

@@ -238,9 +238,21 @@ const LogEntryRow = ({ log }) => {
       case 'create': return 'બનાવ્યું';
       case 'update': return 'અપડેટ';
       case 'delete': return 'કાઢી નાખ્યું';
+      case 'restore': return 'પુનઃસ્થાપિત'; // Added restore
       default: return action;
     }
   };
+
+  const getActionColor = (action) => {
+    switch(action) {
+      case 'create': return 'success';
+      case 'delete': return 'error';
+      case 'restore': return 'info';
+      case 'update': return 'default';
+      default: return 'default';
+    }
+  };
+
 
   return (
     <React.Fragment>
@@ -257,7 +269,7 @@ const LogEntryRow = ({ log }) => {
         <TableCell><Chip label={log.requestNumber} size="small" variant="outlined"/></TableCell>
         <TableCell>{new Date(log.timestamp).toLocaleString("gu-IN")}</TableCell>
         <TableCell>{log.user?.name || 'સિસ્ટમ'}</TableCell>
-        <TableCell><Chip label={getActionLabel(log.action)} size="small" color={log.action === 'create' ? 'success' : log.action === 'delete' ? 'error' : 'default'} /></TableCell>
+        <TableCell><Chip label={getActionLabel(log.action)} size="small" color={getActionColor(log.action)} /></TableCell>
         <TableCell>{displayName}</TableCell>
       </TableRow>
       <TableRow>
@@ -299,9 +311,10 @@ const AuditLogsPage = () => {
         search: searchTerm,
         ...filters,
       };
+      // This logic must be matched in the /export/audit route!
       Object.keys(params).forEach(key => !params[key] && delete params[key]);
 
-      const res = await api.get("/audit", { params });
+      const res = await api.get("/audit", { params }); // This calls the auditLogs.js route
       setLogs(res.data.logs || []);
       setPagination(res.data.pagination || { currentPage: 1, totalPages: 1, totalLogs: 0 });
     } catch (err) {
@@ -321,18 +334,25 @@ const AuditLogsPage = () => {
     setPage(0);
   };
   
+  //
+  // --- 🔻🔻 MODIFIED handleExport 🔻🔻 ---
+  //
   const handleExport = async () => {
       try {
-        const params = { format: 'csv', search: searchTerm, ...filters };
+        // We no longer need format: 'csv'
+        const params = { search: searchTerm, ...filters };
         Object.keys(params).forEach(key => !params[key] && delete params[key]);
 
+        // This calls the exports.js route
         const res = await api.get('/export/audit', { params, responseType: 'blob' });
         
-        const blob = new Blob([res.data], { type: 'text/csv' });
+        // --- FIX 1: Change blob type to match Excel ---
+        const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'audit_logs.csv';
+        // --- FIX 2: Change file extension to .xlsx ---
+        a.download = 'audit_logs.xlsx';
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -342,6 +362,9 @@ const AuditLogsPage = () => {
           console.error("Failed to export logs:", err);
       }
   };
+  //
+  // --- 🔺🔺 END OF MODIFICATION 🔺🔺 ---
+  //
 
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
@@ -367,6 +390,7 @@ const AuditLogsPage = () => {
                         <MenuItem value="create">બનાવ્યું</MenuItem>
                         <MenuItem value="update">અપડેટ</MenuItem>
                         <MenuItem value="delete">કાઢી નાખ્યું</MenuItem>
+                        <MenuItem value="restore">પુનઃસ્થાપિત</MenuItem> 
                     </Select>
                 </FormControl>
                 <FormControl fullWidth><InputLabel>એન્ટિટી પ્રકાર</InputLabel>
@@ -416,7 +440,7 @@ const AuditLogsPage = () => {
                 page={page}
                 rowsPerPage={rowsPerPage}
                 onPageChange={(e, newPage) => setPage(newPage)}
-                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.guit, 10)); setPage(0); }}
+                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }} // <-- FIX: e.guit -> e.target.value
                 rowsPerPageOptions={[10, 25, 50]}
                 labelRowsPerPage="પ્રતિ પૃષ્ઠ પંક્તિઓ:"
                 labelDisplayedRows={({ from, to, count }) => `${from}–${to} માંથી ${count !== -1 ? count : `${to} થી વધુ`}`}

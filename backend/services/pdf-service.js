@@ -150,7 +150,7 @@ async function generateCard(memberId) {
       if (!isGujarati(famMember.name) || !isGujarati(famMember.relation)) famFontSize -= 6;
       
       doc.font('regular').fontSize(famFontSize).fillColor('purple').text(`${i + 1}) ${famMember.name}`, 38, yPos, { width: 600, ellipsis: true });
-      const relationText = famMember.relation ? `(${famMember.relation}${famMember.age ? `, ${famMember.age}` : ''})` : famMember.age ? `(Age: ${famMember.age})` : '';
+      const relationText = famMember.relation ? `(${famMember.relation}${famMember.age ? `- ${famMember.age}` : ''})` : famMember.age ? `(Age: ${famMember.age})` : '';
       doc.font('regular').fontSize(famFontSize).fillColor('purple').text(relationText, 658, yPos, { width: 200, ellipsis: true });
     }
 

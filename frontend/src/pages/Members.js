@@ -55,7 +55,7 @@ function fmtDate(d, locale = "gu-IN") {
     return dt.toLocaleDateString(locale);
 }
 
-// --- Main Members Page Component ---
+// Main Members Page Component
 export default function Members() {
     const [members, setMembers] = useState([]);
     const [filteredMembers, setFilteredMembers] = useState([]);
@@ -67,7 +67,7 @@ export default function Members() {
     const [generatingPdfId, setGeneratingPdfId] = useState(null);
     const [selectedMemberId, setSelectedMemberId] = useState(null);
 
-    // --- Data Loading & Snackbar ---
+    // Data Loading & Snackbar
     const showSnackbar = useCallback((message, severity) => {
         setSnackbar({ open: true, message, severity });
     }, []);
@@ -90,7 +90,7 @@ export default function Members() {
         loadMembers();
     }, [loadMembers]);
 
-    // --- Search and Filter Logic ---
+    // Search and Filter Logic
     useEffect(() => {
         let results = members.filter(member => {
             const searchLower = searchTerm.toLowerCase();
@@ -108,16 +108,13 @@ export default function Members() {
         setFilteredMembers(results);
     }, [searchTerm, members]);
 
-    // Statistics for the FILTERED view (Top bar) - This still counts EVERYONE (head + family)
+    // Statistics for the FILTERED view (Top bar)
     const stats = useMemo(() => {
         const totalFamilies = filteredMembers.length;
         let totalPeople = 0;
         let maleCount = 0;
         let femaleCount = 0;
         filteredMembers.forEach(member => {
-            // totalPeople += 1;
-            // if (member.head?.gender === 'male') maleCount++;
-            // if (member.head?.gender === 'female') femaleCount++;
             if (member.familyMembers && member.familyMembers.length > 0) {
                 totalPeople += member.familyMembers.length;
                 member.familyMembers.forEach(fm => {
@@ -129,16 +126,13 @@ export default function Members() {
         return { totalFamilies, totalPeople, maleCount, femaleCount };
     }, [filteredMembers]);
 
-    // Statistics for the EXCEL EXPORT (all members) - This still counts EVERYONE (head + family)
+    // Statistics for the EXCEL EXPORT (all members)
     const exportStats = useMemo(() => {
         const totalFamilies = members.length;
         let totalPeople = 0;
         let maleCount = 0;
         let femaleCount = 0;
         members.forEach(member => {
-            // totalPeople += 1;
-            // if (member.head?.gender === 'male') maleCount++;
-            // if (member.head?.gender === 'female') femaleCount++;
             if (member.familyMembers && member.familyMembers.length > 0) {
                 totalPeople += member.familyMembers.length;
                 member.familyMembers.forEach(fm => {
@@ -150,7 +144,7 @@ export default function Members() {
         return { totalFamilies, totalPeople, maleCount, femaleCount };
     }, [members]);
 
-    // --- Handlers ---
+    // Handlers
     const handleGenerateCard = async (memberId) => {
         try {
             setGeneratingPdfId(memberId);
@@ -168,6 +162,7 @@ export default function Members() {
 
     const handleExportExcel = () => {
         try {
+            // 1. Summary Stats Sheet
             const statsData = [
                 { "આંકડા": "કુલ પરિવારો", "કુલ": exportStats.totalFamilies },
                 { "આંકડા": "કુલ સભ્યો", "કુલ": exportStats.totalPeople },
@@ -175,43 +170,67 @@ export default function Members() {
                 { "આંકડા": "સ્ત્રી", "કુલ": exportStats.femaleCount },
             ];
             const ws_stats = XLSX.utils.json_to_sheet(statsData);
-            const memberData = [];
+
+            // 2. Family Summary Sheet - One row per family with counts
+            const familySummaryData = members.map(member => {
+                let maleCount = 0;
+                let femaleCount = 0;
+                member.familyMembers?.forEach(fm => {
+                    if (fm.gender === 'male') maleCount++;
+                    if (fm.gender === 'female') femaleCount++;
+                });
+                const totalFamily = member.familyMembers?.length || 0;
+
+                return {
+                    "સભ્ય નંબર": member.uniqueNumber || 'N/A',
+                    "મુખ્ય નામ": member.head?.name || 'N/A',
+                    "મોબાઇલ નંબર": member.mobile || 'N/A',
+                    "શહેર": member.city || 'N/A',
+                    "પુરુષ": maleCount,
+                    "સ્ત્રી": femaleCount,
+                    "કુલ સભ્યો": totalFamily
+                };
+            });
+
+            // 3. All Members Detail Sheet - All family members with full details
+            const allMembersData = [];
             members.forEach(family => {
-                // memberData.push({
-                //     "યુનિક નંબર": family.uniqueNumber,
-                //     "રેશન કાર્ડ નંબર": family.rationNo,
-                //     "નામ": family.head?.name,
-                //     "જાતિ": family.head?.gender,
-                //     "ઉંમર": family.head?.age,
-                //     "સંબંધ": "પોતે (કુટુંબના વડા)",
-                //     "મોબાઈલ": family.mobile,
-                //     "સરનામું": family.address,
-                //     "ઝોન": family.zone?.name
-                // });
                 family.familyMembers?.forEach(member => {
-                    memberData.push({
-                        "યુનિક નંબર": family.uniqueNumber,
-                        "રેશન કાર્ડ નંબર": family.rationNo,
-                        "નામ": member.name,
-                        "જાતિ": member.gender,
-                        "ઉંમર": member.age,
-                        "સંબંધ": member.relation,
+                    allMembersData.push({
+                        "યુનિક નંબર": family.uniqueNumber || 'N/A',
+                        "રેશન કાર્ડ નંબર": family.rationNo || 'N/A',
+                        "નામ": member.name || 'N/A',
+                        "જાતિ": member.gender === 'male' ? 'પુરુષ' : member.gender === 'female' ? 'સ્ત્રી' : 'અન્ય',
+                        "ઉંમર": member.age || 'N/A',
+                        "સંબંધ": member.relation || 'N/A',
                         "મોબાઈલ": "",
-                        "સરનામું": family.address,
-                        "ઝોન": family.zone?.name
+                        "સરનામું": family.address || 'N/A',
+                        "શહેર": family.city || 'N/A',
+                        "ઝોન": family.zone?.name || 'N/A'
                     });
                 });
-                memberData.push({});
+                // Add empty row between families for better readability
+                allMembersData.push({});
             });
-            if (memberData.length === 0) {
+
+            if (familySummaryData.length === 0) {
                 showSnackbar('નિકાસ કરવા માટે કોઈ ડેટા નથી', 'warning');
                 return;
             }
-            const ws_members = XLSX.utils.json_to_sheet(memberData);
+
+            // Create worksheets
+            const ws_familySummary = XLSX.utils.json_to_sheet(familySummaryData);
+            const ws_allMembers = XLSX.utils.json_to_sheet(allMembersData);
+
+            // Create workbook and append sheets
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws_members, "All Members");
-            XLSX.utils.book_append_sheet(wb, ws_stats, "Summary");
-            XLSX.writeFile(wb, "members_report.xlsx");
+            XLSX.utils.book_append_sheet(wb, ws_familySummary, "Family Summary");
+            XLSX.utils.book_append_sheet(wb, ws_allMembers, "All Members Detail");
+            XLSX.utils.book_append_sheet(wb, ws_stats, "Statistics");
+
+            // Download file
+            XLSX.writeFile(wb, "LuharSamaj_Members_Report.xlsx");
+            showSnackbar('Excel સફળતાપૂર્વક નિકાસ થઈ', 'success');
         } catch (err) {
             console.error("Excel export failed:", err);
             showSnackbar('Excel નિકાસ કરવામાં નિષ્ફળ', 'error');
@@ -233,18 +252,14 @@ export default function Members() {
         setOpenDialog(false);
     };
 
-    // 🔹 MODIFIED: This function now accepts 'requestNumber' from MemberForm
     const handleSubmit = async (formData, requestNumber) => {
         try {
-            // 🔹 MODIFIED: Combine formData and requestNumber into a single payload
             const payload = { ...formData, requestNumber };
 
             if (formData._id) {
-                // 🔹 MODIFIED: Send the combined payload for update
                 await updateMember(formData._id, payload);
                 showSnackbar('સભ્ય સફળતાપૂર્વક અપડેટ થયો', 'success');
             } else {
-                // 🔹 MODIFIED: Send the combined payload for create
                 await createMember(payload);
                 showSnackbar('સભ્ય સફળતાપૂર્વક ઉમેરાયો', 'success');
             }
@@ -271,10 +286,10 @@ export default function Members() {
         setSelectedMemberId(prev => (prev === memberId ? null : memberId));
     };
 
-    // --- Render ---
+    // Render
     return (
         <Container maxWidth="xl" sx={{ py: 3 }}>
-            {/* --- Header and Actions --- */}
+            {/* Header and Actions */}
             <Paper sx={{ p: 2, mb: 3, borderRadius: 3 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
                     <TextField
@@ -326,7 +341,7 @@ export default function Members() {
                 </Grid>
             </Paper>
 
-            {/* --- Member Table --- */}
+            {/* Member Table */}
             {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
                     <CircularProgress />
@@ -346,6 +361,8 @@ export default function Members() {
                                     <TableCell sx={{ width: '10px' }} />
                                     <TableCell sx={{ fontWeight: 'bold' }}>સભ્ય નંબર</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>મુખ્ય નામ</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>મોબાઇલ</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>શહેર</TableCell>
                                     <TableCell align="center" sx={{ fontWeight: 'bold' }}>પુરુષ</TableCell>
                                     <TableCell align="center" sx={{ fontWeight: 'bold' }}>સ્ત્રી</TableCell>
                                     <TableCell align="center" sx={{ fontWeight: 'bold' }}>કુલ સભ્યો</TableCell>
@@ -356,8 +373,6 @@ export default function Members() {
                                     const isSelected = selectedMemberId === member._id;
                                     const isGenerating = generatingPdfId === member._id;
 
-                                    // 🔹 MODIFIED LOGIC START 🔹
-                                    // All counts (male, female, total) now *only* refer to familyMembers, excluding the head.
                                     let maleCount = 0;
                                     let femaleCount = 0;
 
@@ -370,9 +385,7 @@ export default function Members() {
                                         }
                                     });
 
-                                    // This is the total of *only* family members.
-                                    const totalFamily = maleCount + femaleCount;
-                                    // 🔹 MODIFIED LOGIC END 🔹
+                                    const totalFamily = member.familyMembers?.length || 0;
 
                                     return (
                                         <React.Fragment key={member._id}>
@@ -390,13 +403,15 @@ export default function Members() {
                                                 <TableCell component="th" scope="row">
                                                     {member.head?.name}
                                                 </TableCell>
+                                                <TableCell>{member.mobile || 'N/A'}</TableCell>
+                                                <TableCell>{member.city || 'N/A'}</TableCell>
                                                 <TableCell align="center">{maleCount}</TableCell>
                                                 <TableCell align="center">{femaleCount}</TableCell>
                                                 <TableCell align="center">{totalFamily}</TableCell>
                                             </TableRow>
 
                                             <TableRow>
-                                                <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+                                                <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={8}>
                                                     <Collapse in={isSelected} timeout="auto" unmountOnExit>
                                                         <Box sx={{ margin: 1, p: 2, backgroundColor: '#f9f9f9', borderRadius: 1 }}>
                                                             <Typography variant="h6" gutterBottom sx={{ fontSize: '1rem', fontWeight: 'bold' }}>
@@ -565,15 +580,10 @@ export default function Members() {
                 </Paper>
             )}
 
-            {/* --- Dialogs and Snackbar --- */}
+            {/* Dialogs and Snackbar */}
             <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth maxWidth="md">
                 <DialogTitle>{currentMember ? 'સભ્ય સંપાદિત કરો' : 'નવો સભ્ય ઉમેરો'}</DialogTitle>
                 <DialogContent dividers>
-                    {/* 🔹 NOTE: You MUST update MemberForm.js 
-                        It now needs to:
-                        1. Have a new TextField for 'Request Number'.
-                        2. Call onSubmit with TWO arguments: onSubmit(formData, requestNumber).
-                    */}
                     <MemberForm onSubmit={handleSubmit} memberToEdit={currentMember} loading={false} error={null} />
                 </DialogContent>
             </Dialog>

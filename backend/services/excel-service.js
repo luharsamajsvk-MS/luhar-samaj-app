@@ -60,6 +60,9 @@ function formatRequestsForExcel(requests) {
     }));
 }
 
+//
+// --- 🔻🔻 MODIFIED formatAuditLogsForExcel 🔻🔻 ---
+//
 function formatAuditLogsForExcel(logs) {
     const formatChanges = (changes) => {
         if (!changes || changes.length === 0) return "No changes";
@@ -67,15 +70,20 @@ function formatAuditLogsForExcel(logs) {
     };
 
     return logs.map(log => ({
-        'Audit Number': log.auditNumber,
+        // --- 🔻🔻 THIS LINE IS THE FIX 🔻🔻 ---
+        'Request Number': log.requestNumber, // Was 'Audit Number': log.auditNumber
+        // --- 🔺🔺 END OF FIX 🔺🔺 ---
         'Timestamp': new Date(log.timestamp).toLocaleString('gu-IN'),
-        'User': log.user?.name || 'System',
+        'User': log.user?.name || 'System', // Relies on user.name being saved in the log
         'Action': log.action,
         'Entity': log.entityType,
         'Member Name': log.memberId?.head?.name || 'N/A',
         'Changes': formatChanges(log.changes),
     }));
 }
+//
+// --- 🔺🔺 END OF MODIFICATION 🔺🔺 ---
+//
 
 module.exports = {
     generateExcelBuffer,

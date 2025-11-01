@@ -1,5 +1,5 @@
 const express = require('express');
-const router = express.Router(); // <--- FIX 1: Defines the router
+const router = express.Router();
 const auth = require('../middleware/auth');
 const Member = require('../models/Member');
 const Zone = require('../models/Zone');
@@ -8,9 +8,15 @@ const Zone = require('../models/Zone');
 // This is used by your /zones-distribution route
 async function getZoneDistribution() {
   return Member.aggregate([
+    // 🔻 --- FIX 1: Filter out deleted members --- 🔻
+    {
+      $match: { isDeleted: { $ne: true } }
+    },
+    // 🔺 --- END FIX --- 🔺
     {
       $group: {
         _id: "$zone",
+        // This helper still counts head + family, as it's a separate route
         totalPeople: {
           $sum: { $add: [1, { $size: { $ifNull: ["$familyMembers", []] } }] }
         }
@@ -36,44 +42,46 @@ async function getZoneDistribution() {
 }
 
 // Main Dashboard Data
-// FIX 2: This route uses the efficient aggregation for all stats
 router.get('/', auth, async (req, res) => {
   try {
-    // These two counts are fast
-    const totalMembers = await Member.countDocuments(); // Total families
+    // 🔻 --- FIX 2: Filtered total member (family) count --- 🔻
+    const totalMembers = await Member.countDocuments({ isDeleted: { $ne: true } });
+    // 🔺 --- END FIX --- 🔺
     const totalZones = await Zone.countDocuments();
 
     // Single aggregation for all other stats
     const statsAgg = await Member.aggregate([
+    // 🔻 --- FIX 3: Filter out deleted members at the start --- 🔻
+      {
+        $match: { isDeleted: { $ne: true } }
+      },
+    // 🔺 --- END FIX --- 🔺
       { 
         $addFields: {
-          // Create a single array of all people (head + family)
+          // Create a single array of ONLY family members (as requested)
           allPeople: { 
-            $concatArrays: [ 
-              ["$head"], // Put head in its own array
-              { $ifNull: ["$familyMembers", []] } // Add the family members
-            ] 
+            $ifNull: ["$familyMembers", []]
           }
         }
       },
       {
         $facet: {
-          // Pipeline 1: Get counts for male, female
+          // Pipeline 1: Get counts for male, female (from family members)
           "genderCounts": [
-            { $unwind: "$allPeople" }, // Create one doc per person
+            { $unwind: "$allPeople" },
             { 
               $group: {
-                _id: "$allPeople.gender", // Group by 'male' or 'female'
+                _id: "$allPeople.gender",
                 count: { $sum: 1 }
               }
             }
           ],
-          // Pipeline 2: Get total people count
+          // Pipeline 2: Get total people count (from family members)
           "totalPeopleCount": [
             { $unwind: "$allPeople" },
             { $count: "count" }
           ],
-          // Pipeline 3: Get zone distribution
+          // Pipeline 3: Get zone distribution (from family members)
           "zoneDistribution": [
             {
               $group: {
@@ -86,7 +94,6 @@ router.get('/', auth, async (req, res) => {
             { 
               $project: { 
                 _id: 0,
-// If a member has no zone, label it 'Unknown'
                 name: { $ifNull: ["$zone.name", "Unknown"] }, 
                 totalPeople: 1 
               }
@@ -110,18 +117,17 @@ router.get('/', auth, async (req, res) => {
     });
     
     const totalPeople = results.totalPeopleCount[0]?.count || 0;
-    // FIX 3: Removed the 'a' typo from this line
     const zoneDistribution = results.zoneDistribution; 
 
     // Send the final JSON response
     res.json({
-      totalMembers, // Total families
-      totalPeople,
+      totalMembers, // Total *active* families
+      totalPeople,  // Total people from *active* familyMembers
       totalZones,
-      totalMales,
-      totalFemales,
-      zoneDistribution
-    });
+      totalMales,     // Total males from *active* familyMembers
+      totalFemales,   // Total females from *active* familyMembers
+      zoneDistribution // Zone distribution based on *active* familyMembers
+  });
 
   } catch (err) {
     console.error('Dashboard fetch error:', err);
